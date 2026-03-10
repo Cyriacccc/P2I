@@ -32,6 +32,9 @@ def analyze_video(video_path: str):
 
     prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY) #On convertit la première frame en niveaux de gris pour faciliter le calcul de la différence avec les frames suivantes
 
+    prev_hist = cv2.calcHist([prev_gray], [0], None, [256], [0,256]) #On calcule l'histogramme de la première frame pour l'utiliser comme référence pour les suivantes, cela permet de mesurer les changements de luminosité ou de contraste qui peuvent indiquer des coupures de scène même si le mouvement n'est pas très élevé
+    prev_hist = cv2.normalize(prev_hist, prev_hist).flatten() #On normalise l'histogramme pour le rendre plus robuste aux variations de luminosité et de contraste, et on le met à plat pour faciliter les calculs de différence d'histogramme plus tard
+
     frame_index = 1 #On initialise un index de frame pour suivre notre progression dans la vidéo
     motion_scores = [] #On initialise une liste pour stocker les scores de mouvement calculés pour chaque frame
 
@@ -39,13 +42,25 @@ def analyze_video(video_path: str):
         ret, frame = cap.read()
         if not ret:
             break #Si on ne peut plus lire de frames, on sort de la boucle
+        if frame_index % 100 == 0:
+            progress = frame_index / frame_count * 100
+            print(f"Progression : {progress:.1f}%") #On affiche la progression de l'analyse tous les 100 frames pour donner une idée du temps restant, en calculant le pourcentage de frames traitées par rapport au nombre total de frames, et en affichant ce pourcentage avec une décimale pour plus de précision
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) #On convertit la frame actuelle en niveaux de gris pour faciliter le calcul de la différence avec la frame précédente
 
-        diff = cv2.absdiff(prev_gray, gray) #On calcule la différence absolue entre la frame précédente et la frame actuelle pour mesurer le mouvement
-        motion_score = np.sum(diff) #On calcule un score de mouvement en sommant les valeurs de la différence, plus le score est élevé, plus il y a de mouvement entre les deux frames
+        hist = cv2.calcHist([gray], [0], None, [256], [0,256]) #On calcule l'histogramme de la frame actuelle pour le comparer avec l'histogramme de la frame précédente, cela permet de mesurer les changements de luminosité ou de contraste qui peuvent indiquer des coupures de scène même si le mouvement n'est pas très élevé
+        hist = cv2.normalize(hist, hist).flatten() #On normalise l'histogramme de la frame actuelle pour le rendre plus robuste aux variations de luminosité et de contraste, et on le met à plat pour faciliter les calculs de différence d'histogramme plus tard
 
-        motion_scores.append(motion_score) #On ajoute le score de mouvement calculé à notre liste pour l'analyser plus tard
+        diff = cv2.absdiff(prev_gray, gray) #On calcule la différence absolue entre la frame précédente et la frame actuelle pour mesurer le mouvement
+        motion_score = np.mean(diff) #On calcule un score de mouvement en moyennant les valeurs de la différence, plus le score est élevé, plus il y a de mouvement entre les deux frames
+
+        hist_diff = cv2.compareHist(prev_hist, hist, cv2.HISTCMP_BHATTACHARYYA) #On calcule la différence entre les histogrammes de la frame précédente et de la frame actuelle pour mesurer les changements de luminosité ou de contraste, cela peut aider à détecter des coupures de scène même si le mouvement n'est pas très élevé
+
+        combined_score = motion_score + hist_diff * 50 #On combine le score de mouvement avec la différence d'histogramme pour obtenir un score plus robuste qui prend en compte à la fois les changements de mouvement et les changements de luminosité ou de contraste, en multipliant la différence d'histogramme par un facteur pour lui donner plus de poids dans le score final
+        motion_scores.append(combined_score) #On ajoute le score combiné à notre liste pour l'analyser plus tard
+
+        
+        prev_hist = hist #On met à jour l'histogramme précédent pour la prochaine itération de la boucle, afin de comparer avec le prochain frame
 
         prev_gray = gray #On met à jour la frame précédente pour la prochaine itération de la boucle
         frame_index += 1 #On incrémente l'index de frame pour suivre notre progression dans la vidéo
@@ -126,7 +141,7 @@ def analyze_video(video_path: str):
     high_motion_frames = np.where(smoothed_motion > dynamic_threshold)[0] # On trouve les indices des frames où le score de mouvement lissé dépasse le seuil dynamique, ces indices représentent les moments forts potentiels dans la vidéo, où il y a un niveau de mouvement significatif qui pourrait correspondre à des scènes d'action ou des événements importants
 
     moments = []
-    min_duration = int(fps * 0.5)  # au moins 0.5 seconde
+    min_duration = int(fps * 1.5)  # au moins 0.5 seconde
 
     if len(high_motion_frames) > 0:
         start = high_motion_frames[0]
@@ -135,21 +150,47 @@ def analyze_video(video_path: str):
         for frame in high_motion_frames[1:]:
             if frame - prev > 1:
                 if prev - start >= min_duration:
-                    moments.append((start, prev))
+                    segment_score = np.mean(smoothed_motion[start:prev])
+                    moments.append((start, prev, segment_score))
                 start = frame
             prev = frame
 
         if prev - start >= min_duration:
-            moments.append((start, prev))
+             segment_score = np.mean(smoothed_motion[start:prev])
+             moments.append((start, prev, segment_score))  
+
+        moments = sorted(moments, key=lambda x: x[2], reverse=True) #On trie les moments forts détectés par score de mouvement décroissant pour identifier les moments les plus significatifs dans la vidéo, cela permet de se concentrer sur les scènes d'action ou les événements les plus importants, en utilisant une fonction de tri qui prend en compte le score de mouvement moyen pour chaque segment identifié, et en triant ces segments du plus élevé au plus bas, ce qui facilite l'analyse et l'export des meilleurs moments de la vidéo
+             
+
+        
 
     print("\n🎯 Moments forts détectés :")
-    for start, end in moments:
-        print(f"- {start/fps:.2f}s → {end/fps:.2f}s") 
+    for start, end, score in moments:
+        print(f"- {start/fps:.2f}s → {end/fps:.2f}s | Score : {score:.2f}") 
+
+
+    # Ajout d'une durée maximal pour le best-of pour éviter d'avoir un best-of trop long si la vidéo contient beaucoup de moments forts, on peut définir une durée maximale en secondes, et lors de la sélection des moments à inclure dans le best-of, on peut vérifier que la durée totale des moments sélectionnés ne dépasse pas cette limite, si l'ajout d'un moment ferait dépasser la limite, on peut choisir de ne pas l'inclure ou de réduire sa durée pour respecter la limite, cela permet de créer un best-of plus concis et plus facile à regarder, tout en mettant en avant les moments les plus significatifs de la vidéo
+
+
+    max_duration = 30  # secondes
+    current_duration = 0
+    selected_moments = []
+
+    for start, end, score in moments:
+
+        duration = (end - start) / fps
+
+        if current_duration + duration <= max_duration:
+            selected_moments.append((start, end))
+            current_duration += duration
+
+        
         
 
 
     print("Moments envoyés à l'export :", moments)
-    export_best_of(video_path, moments)
+    export_best_of(video_path, selected_moments)
+
 
 def export_best_of(video_path, moments, output_name="best_of.mp4"):
     cap = cv2.VideoCapture(video_path)
@@ -175,7 +216,7 @@ def export_best_of(video_path, moments, output_name="best_of.mp4"):
 
     print("🎬 Génération du best-of...")
 
-    for start, end in moments:
+    for start, end, score in moments:
         cap.set(cv2.CAP_PROP_POS_FRAMES, start)
 
         for frame_idx in range(start, end):
@@ -188,5 +229,7 @@ def export_best_of(video_path, moments, output_name="best_of.mp4"):
     out.release()
 
     print(f"✅ Best-of exporté : {output_path}")
+
+    
 
     
