@@ -179,3 +179,7 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+*.mp4
+data/
+samples/ #Dossier de vidéos d'exemple, à ne pas inclure dans le dépôt
