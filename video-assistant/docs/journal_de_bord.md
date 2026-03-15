@@ -200,3 +200,76 @@ Je combine donc deux indicateurs visuels :
 
 
 ## semaine 5 
+
+Un vrai logiciel vidéo génère en général une image représentative du best-of, cela s'apelle une miniature. 
+Pour cela, je vais prendre le moment le plus intense, extraire la frame et l'enregistrer comme thumbnail.png
+
+1- On récupère le meilleur moment
+Etant donnée que j'ai deja trié les moments par score:
+
+moments = sorted(moments, key=lambda x: x[2], reverse=True)
+
+Le meilleur moment est :
+
+best_moment = moments[0]
+
+2- On crée une fonction pour générer cette miniature
+
+def generate_thumbnail(video_path, moment):
+
+    start_frame = moment[0]
+
+    cap = cv2.VideoCapture(video_path)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+
+    ret, frame = cap.read()
+
+    if ret:
+        base_path = Path(__file__).resolve().parent.parent
+        thumbnail_path = base_path / "outputs" / "thumbnail.png"
+
+        cv2.imwrite(str(thumbnail_path), frame)
+
+        print("🖼️ Thumbnail généré :", thumbnail_path)
+
+    cap.release()
+
+3- J'apelle la fonction
+
+generate_thumbnail(video_path, moments[0])
+
+Ainsi mon programme génère automatiquement une miniature du moment le plus intense
+
+J'ai mis une nouvelle vidéo pour le test.mp4, ma vidéo dure 1min29. J'avais une erreur lorsque je lancais mon programme.
+L’erreur venait du fait que le programme essayait de récupérer trois valeurs (start, end, score) dans chaque moment, alors que la liste utilisée n’en contenait que deux (start, end).
+La boucle a donc été corrigée pour ne lire que ces deux valeurs, ce qui correspond aux données réellement stockées dans la liste.
+
+
+
+De plus j'ajoute une petite modification dans ma fonction, actuellement j'ai la premiere frame du meilleur moment mais ce n'est pas forcément la meilleur image de la periode sur laquelle est définit le meilleur moment.
+Par exemple : Moment fort : 30.96s → 32.53s
+La meilleur frame peut etre : 31.84s
+
+je change ma fonction en y ajoutant ces éléments : 
+
+def generate_thumbnail(video_path, moment, motion_array):
+
+    start, end, score = moment
+
+    # frame avec le score maximum dans le segment
+    best_frame = start + np.argmax(motion_array[start:end])
+
+    cap = cv2.VideoCapture(video_path)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, int(best_frame))
+
+    ret, frame = cap.read()
+
+    if ret:
+        output_path = Path("outputs/thumbnail.jpg")
+        cv2.imwrite(str(output_path), frame)
+        print("🖼️ Miniature générée :", output_path)
+
+    cap.release()
+
+
+J'ajoute motion_array car il contient le score de chaque frame et on l'utilise pour trouver np.argmax(motion_array[start:end]), c'est-a-dire la frame avec le mouvement maximum

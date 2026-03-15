@@ -4,6 +4,7 @@ import csv
 from pathlib import Path
 import matplotlib.pyplot as plt
 
+
 def analyze_video(video_path: str):
     """
     Analyse avancée :
@@ -11,9 +12,12 @@ def analyze_video(video_path: str):
     - Calcul de différence entre images
     - Mesure du mouvement
     """
+    
+
+    
 
     cap = cv2.VideoCapture(video_path) #On ouvre la vidéo pour l'analyser
-
+    
     if not cap.isOpened():
         print("❌ Impossible d'ouvrir la vidéo")
         return                                     #Si la vidéo ne s'ouvre pas, on affiche un message d'erreur et on arrête l'analyse
@@ -32,8 +36,8 @@ def analyze_video(video_path: str):
 
     prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY) #On convertit la première frame en niveaux de gris pour faciliter le calcul de la différence avec les frames suivantes
 
-    prev_hist = cv2.calcHist([prev_gray], [0], None, [256], [0,256]) #On calcule l'histogramme de la première frame pour l'utiliser comme référence pour les suivantes, cela permet de mesurer les changements de luminosité ou de contraste qui peuvent indiquer des coupures de scène même si le mouvement n'est pas très élevé
-    prev_hist = cv2.normalize(prev_hist, prev_hist).flatten() #On normalise l'histogramme pour le rendre plus robuste aux variations de luminosité et de contraste, et on le met à plat pour faciliter les calculs de différence d'histogramme plus tard
+    prev_hist = cv2.calcHist([prev_gray], [0], None, [256], [0,256])
+    prev_hist = cv2.normalize(prev_hist, prev_hist).flatten()
 
     frame_index = 1 #On initialise un index de frame pour suivre notre progression dans la vidéo
     motion_scores = [] #On initialise une liste pour stocker les scores de mouvement calculés pour chaque frame
@@ -44,12 +48,12 @@ def analyze_video(video_path: str):
             break #Si on ne peut plus lire de frames, on sort de la boucle
         if frame_index % 100 == 0:
             progress = frame_index / frame_count * 100
-            print(f"Progression : {progress:.1f}%") #On affiche la progression de l'analyse tous les 100 frames pour donner une idée du temps restant, en calculant le pourcentage de frames traitées par rapport au nombre total de frames, et en affichant ce pourcentage avec une décimale pour plus de précision
+            print(f"Progression : {progress:.1f}%")
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) #On convertit la frame actuelle en niveaux de gris pour faciliter le calcul de la différence avec la frame précédente
 
-        hist = cv2.calcHist([gray], [0], None, [256], [0,256]) #On calcule l'histogramme de la frame actuelle pour le comparer avec l'histogramme de la frame précédente, cela permet de mesurer les changements de luminosité ou de contraste qui peuvent indiquer des coupures de scène même si le mouvement n'est pas très élevé
-        hist = cv2.normalize(hist, hist).flatten() #On normalise l'histogramme de la frame actuelle pour le rendre plus robuste aux variations de luminosité et de contraste, et on le met à plat pour faciliter les calculs de différence d'histogramme plus tard
+        hist = cv2.calcHist([gray], [0], None, [256], [0,256])
+        hist = cv2.normalize(hist, hist).flatten()
 
         diff = cv2.absdiff(prev_gray, gray) #On calcule la différence absolue entre la frame précédente et la frame actuelle pour mesurer le mouvement
         motion_score = np.mean(diff) #On calcule un score de mouvement en moyennant les valeurs de la différence, plus le score est élevé, plus il y a de mouvement entre les deux frames
@@ -190,6 +194,10 @@ def analyze_video(video_path: str):
 
     print("Moments envoyés à l'export :", moments)
     export_best_of(video_path, selected_moments)
+    if len(moments) > 0:
+        generate_thumbnail(video_path, moments[0], motion_array)
+    else:
+        print("⚠️ Aucun moment fort détecté, miniature non générée") # On apelle la fonction pour affichier la miniature a codition qu'il existe au moins 1 moment fort
 
 
 def export_best_of(video_path, moments, output_name="best_of.mp4"):
@@ -216,7 +224,8 @@ def export_best_of(video_path, moments, output_name="best_of.mp4"):
 
     print("🎬 Génération du best-of...")
 
-    for start, end, score in moments:
+    for start, end in moments:
+
         cap.set(cv2.CAP_PROP_POS_FRAMES, start)
 
         for frame_idx in range(start, end):
@@ -230,6 +239,23 @@ def export_best_of(video_path, moments, output_name="best_of.mp4"):
 
     print(f"✅ Best-of exporté : {output_path}")
 
-    
+def generate_thumbnail(video_path, moment, motion_array):
 
+    start, end, score = moment
+
+    # frame avec le score maximum dans le segment
+    best_frame = start + np.argmax(motion_array[start:end])
+
+    cap = cv2.VideoCapture(video_path)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, int(best_frame))
+
+    ret, frame = cap.read()
+
+    if ret:
+        output_path = Path("outputs/thumbnail.png")
+        cv2.imwrite(str(output_path), frame)
+        print("🖼️ Miniature générée :", output_path)
+
+    cap.release()
+# On peut ajouter une fonction pour générer une miniature de la vidéo à partir du moment fort le plus significatif, en utilisant OpenCV pour capturer une frame spécifique de la vidéo correspondant au début du moment fort, puis en sauvegardant cette frame comme une image PNG dans le dossier d'outputs, cela permet d'avoir une représentation visuelle du moment fort le plus important de la vidéo, qui peut être utilisée comme vignette ou aperçu pour le best-of généré.
     
