@@ -182,4 +182,3 @@ cython_debug/
 
 *.mp4
 data/
-samples/ #Dossier de vidéos d'exemple, à ne pas inclure dans le dépôt
