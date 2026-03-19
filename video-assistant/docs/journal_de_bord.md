@@ -273,3 +273,112 @@ def generate_thumbnail(video_path, moment, motion_array):
 
 
 J'ajoute motion_array car il contient le score de chaque frame et on l'utilise pour trouver np.argmax(motion_array[start:end]), c'est-a-dire la frame avec le mouvement maximum
+
+## semaine 6
+
+# Ré-adaptation de la génération du best-of
+
+Une première sélection est  réalisée en ajoutant des segments dans le best-of jusqu’à atteindre deux conditions :
+
+un nombre minimal de segments (au moins 5 moments forts),
+
+une durée minimale du best-of correspondant à 20 % de la durée totale de la vidéo.
+
+Cette approche permet de garantir que le best-of contienne suffisamment de contenu intéressant.
+
+
+video_duration = frame_count / fps 
+
+
+    min_bestof_duration = video_duration * 0.2 
+    min_moments = 5 
+
+    selected_moments = [] 
+    current_duration = 0 
+
+    # 1. On ajoute d'abord les moments forts
+    for start, end, score in moments:
+        segment_duration = (end - start) / fps
+
+        selected_moments.append((start, end))
+        current_duration += segment_duration
+
+        if len(selected_moments) >= min_moments and current_duration >= min_bestof_duration:
+            break
+
+
+
+
+# Complément avec les segments de scènes
+
+Dans certains cas, les moments forts détectés ne suffisent pas à atteindre la durée minimale fixée. Pour résoudre ce problème, l’algorithme utilise également les coupures de scène détectées précédemment dans la vidéo. Ces coupures permettent de créer des segments supplémentaires qui complètent le best-of jusqu’à atteindre la durée minimale requise.
+
+  Si la durée n'est pas suffisante, on complète avec les segments issus des scene_cuts
+  
+    if current_duration < min_bestof_duration:
+        for start, end in scene_segments:
+
+            # éviter d'ajouter un segment qui chevauche déjà un moment sélectionné
+            overlap = False
+            for sel_start, sel_end in selected_moments:
+                if not (end < sel_start or start > sel_end):
+                    overlap = True
+                    break
+
+            if not overlap:
+                selected_moments.append((start, end))
+                current_duration += (end - start) / fps
+
+            if current_duration >= min_bestof_duration:
+             break
+
+
+
+
+
+ # Réorganisation chronologique des segments
+
+Les segments sélectionnés sont initialement triés selon leur score d’intensité. Cependant, pour assurer une cohérence temporelle lors du visionnage, les segments retenus sont ensuite réordonnés selon leur position dans la vidéo. Cette étape garantit que le best-of suit une progression chronologique naturelle.
+
+ Tri chronologique pour garder un best-of cohérent
+    selected_moments = sorted(selected_moments, key=lambda x: x[0])
+
+
+
+# Fusion des segments proches
+
+Une étape supplémentaire de post-traitement a été ajoutée afin d'améliorer la fluidité du montage. Lorsque deux segments sélectionnés sont séparés par un intervalle très court, ils sont fusionnés en un seul segment plus long. Cette méthode permet d’éviter les micro-coupures trop rapprochées qui pourraient rendre le best-of difficile à suivre visuellement.
+
+on crée une focntion 
+ 
+ def merge_close_segments(segments, max_gap_frames): 
+    if not segments:
+        return []
+
+    # segments triés par début
+    segments = sorted(segments, key=lambda x: x[0])
+
+    merged = [segments[0]]
+
+    for current_start, current_end in segments[1:]:
+        last_start, last_end = merged[-1]
+
+        # si l'écart entre les deux segments est petit, on fusionne
+        if current_start - last_end <= max_gap_frames:
+            merged[-1] = (last_start, max(last_end, current_end))
+        else:
+            merged.append((current_start, current_end))
+
+    return merged
+
+      #  Fusion des segments trop proches
+
+    merge_gap_seconds = 1.0
+    merge_gap_frames = int(merge_gap_seconds * fps)
+    selected_moments = merge_close_segments(selected_moments, merge_gap_frames) 
+
+    #  Recalcul de la durée après fusion
+
+    current_duration = 0
+    for start, end in selected_moments:
+        current_duration += (end - start) / fps

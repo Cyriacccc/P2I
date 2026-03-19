@@ -29,6 +29,8 @@ def analyze_video(video_path: str):
     print(f"Frames totales : {frame_count}")
     print(f"FPS : {fps}")
 
+    
+    
     ret, prev_frame = cap.read() #On lit la première frame pour l'utiliser comme référence pour les suivantes
     if not ret:
         print("❌ Impossible de lire la première frame")
@@ -89,7 +91,21 @@ def analyze_video(video_path: str):
             scene_cuts.append(cut)
             last_cut = cut #On parcourt les indices des coupures potentielles et on ajoute à la liste finale seulement celles qui sont suffisamment éloignées de la dernière coupure acceptée, cela permet de réduire les faux positifs et d'obtenir une liste plus précise des coupures de scène réelles dans la vidéo
 
-    
+    #On crée une liste de segment pour y ajouter les cut des scènes qui ont un score qui va au dessus du seuil de détéction, cette liste est utile car on pourra prendre des cut de cette liste pour combler le best-of dans le cas ou les moments forts ajouter ne font pas le temps nécessaire lorsqu'ils sont sommés.
+    scene_segments = []
+    max_scene_duration = 3.0  # secondes max pour une scène ajoutée au best-of
+    max_scene_frames = int(max_scene_duration * fps) # On calcule le nombre maximum de frames pour une scène à inclure dans le best-of en multipliant la durée maximale par le nombre de frames par seconde, cela nous permet de tronquer les scènes qui sont trop longues pour éviter d'inclure des segments qui pourraient être moins intéressants ou qui pourraient diluer l'impact du best-of, en utilisant ce critère de durée maximale, nous pouvons nous assurer que le best-of reste dynamique et engageant pour le spectateur, en mettant en avant les moments les plus significatifs sans inclure des scènes trop longues qui pourraient perdre l'attention du spectateur.
+
+    for i in range(len(scene_cuts) - 1):
+        start = scene_cuts[i]
+        end = scene_cuts[i + 1]
+
+        if end > start:
+            # si la scène est trop longue, on la tronque
+            if (end - start) > max_scene_frames:
+                end = start + max_scene_frames
+
+            scene_segments.append((start, end)) #On crée une liste de segments de scène à partir des indices de coupures de scène, en définissant le début de chaque segment comme l'indice de la coupure actuelle et la fin comme l'indice de la coupure suivante, en vérifiant que la fin est bien après le début pour éviter les segments invalides, et en tronquant les segments qui dépassent la durée maximale définie précédemment pour s'assurer que le best-of reste dynamique et engageant pour le spectateur, en utilisant cette liste de segments de scène, nous pouvons ensuite sélectionner les meilleurs moments à inclure dans le best-of en fonction du score de mouvement et d'autres critères d'analyse.
 
 
     print("✅ Analyse terminée")
@@ -97,6 +113,9 @@ def analyze_video(video_path: str):
     print(f"Écart-type : {std_motion:.2f}")
     print(f"Seuil de détection : {threshold:.2f}")
     print(f"Nombre de coupures détectées : {len(scene_cuts)}")
+
+
+ 
 
     # ===== EXPORT CSV =====
     base_path = Path(__file__).resolve().parent.parent #On utilise pathlib pour construire le chemin vers le dossier d'outputs de manière plus robuste et compatible avec différents systèmes d'exploitation
@@ -145,7 +164,7 @@ def analyze_video(video_path: str):
     high_motion_frames = np.where(smoothed_motion > dynamic_threshold)[0] # On trouve les indices des frames où le score de mouvement lissé dépasse le seuil dynamique, ces indices représentent les moments forts potentiels dans la vidéo, où il y a un niveau de mouvement significatif qui pourrait correspondre à des scènes d'action ou des événements importants
 
     moments = []
-    min_duration = int(fps * 1.5)  # au moins 0.5 seconde
+    min_duration = int(fps * 0.5)  # au moins 0.5 seconde
 
     if len(high_motion_frames) > 0:
         start = high_motion_frames[0]
@@ -170,37 +189,76 @@ def analyze_video(video_path: str):
 
     print("\n🎯 Moments forts détectés :")
     for start, end, score in moments:
-        print(f"- {start/fps:.2f}s → {end/fps:.2f}s | Score : {score:.2f}") 
-
-
-    # Ajout d'une durée maximal pour le best-of pour éviter d'avoir un best-of trop long si la vidéo contient beaucoup de moments forts, on peut définir une durée maximale en secondes, et lors de la sélection des moments à inclure dans le best-of, on peut vérifier que la durée totale des moments sélectionnés ne dépasse pas cette limite, si l'ajout d'un moment ferait dépasser la limite, on peut choisir de ne pas l'inclure ou de réduire sa durée pour respecter la limite, cela permet de créer un best-of plus concis et plus facile à regarder, tout en mettant en avant les moments les plus significatifs de la vidéo
-
-
-    max_duration = 30  # secondes
-    current_duration = 0
-    selected_moments = []
-
-    for start, end, score in moments:
-
-        duration = (end - start) / fps
-
-        if current_duration + duration <= max_duration:
-            selected_moments.append((start, end))
-            current_duration += duration
-
-        
-        
+        print(f"- {start/fps:.2f}s → {end/fps:.2f}s | Score : {score:.2f}")   
 
 
     print("Moments envoyés à l'export :", moments)
+
+
+
+    video_duration = frame_count / fps #On calcule la durée totale de la vidéo en secondes en divisant le nombre total de frames par le nombre de frames par seconde, cela permet d'avoir une référence temporelle pour les segments et les moments forts détectés, et de calculer des durées relatives pour le best-of que nous allons générer, en utilisant cette durée totale pour définir des seuils ou des limites pour la sélection des segments à inclure dans le best-of, afin de créer une compilation qui met en avant les moments les plus significatifs de la vidéo tout en respectant une durée globale raisonnable pour le résultat final
+    min_bestof_duration = video_duration * 0.2 #On définit une durée minimale pour le best-of que nous allons générer, en utilisant un pourcentage de la durée totale de la vidéo, cela permet de s'assurer que le best-of contient suffisamment de contenu pour être intéressant et représentatif des moments forts détectés, tout en évitant de créer un best-of trop long qui pourrait perdre l'attention du spectateur, en utilisant cette approche basée sur la durée relative de la vidéo, nous pouvons adapter la longueur du best-of en fonction de la durée totale de la vidéo analysée, ce qui rend notre application plus flexible et adaptée à différents types de vidéos
+    min_moments = 5 #On définit un nombre minimum de moments forts à inclure dans le best-of, cela permet de garantir que le best-of contient une sélection suffisante de moments significatifs, même si la durée totale des moments forts détectés est inférieure à la durée minimale définie précédemment, en utilisant ce critère basé sur le nombre de moments, nous pouvons nous assurer que le best-of met en avant une variété de scènes d'action ou d'événements importants, même si la vidéo analysée est relativement courte ou si les moments forts sont concentrés dans une partie spécifique de la vidéo
+
+    selected_moments = [] #On initialise une liste pour stocker les moments forts sélectionnés pour le best-of, en utilisant les critères de durée minimale et de nombre minimum de moments définis précédemment, cela nous permet de construire une sélection de segments qui seront inclus dans le best-of final, en parcourant d'abord les moments forts détectés et en les ajoutant à la liste de sélection tant que les critères ne sont pas encore satisfaits, puis en complétant avec des segments issus des coupures de scène si nécessaire pour atteindre la durée minimale du best-of, cela nous permet de créer un best-of qui met en avant les moments les plus significatifs tout en respectant une durée globale cohérente et engageante pour le spectateur
+    current_duration = 0 
+
+    # 1. On ajoute d'abord les moments forts et on s'assure qu'ils respectent les critères de durée et de nombre minimum, en parcourant la liste des moments forts détectés, on ajoute chaque moment à la sélection tant que le nombre de moments sélectionnés est inférieur au nombre minimum défini et que la durée totale des moments sélectionnés est inférieure à la durée minimale du best-of, cela permet de prioriser l'inclusion des moments les plus significatifs dans le best-of, tout en s'assurant que nous avons une base solide de contenu avant de compléter avec d'autres segments si nécessaire, en utilisant cette approche, nous pouvons créer un best-of qui met en avant les moments forts tout en respectant les contraintes de durée et de diversité que nous avons définies pour garantir un résultat final engageant et représentatif de la vidéo analysée.
+    for start, end, score in moments:
+        segment_duration = (end - start) / fps
+
+        selected_moments.append((start, end))
+        current_duration += segment_duration
+
+        if len(selected_moments) >= min_moments and current_duration >= min_bestof_duration:
+            break
+
+    # 2. Si la durée n'est pas suffisante, on complète avec les segments issus des scene_cuts
+    if current_duration < min_bestof_duration:
+        for start, end in scene_segments:
+
+            # éviter d'ajouter un segment qui chevauche déjà un moment sélectionné
+            overlap = False
+            for sel_start, sel_end in selected_moments:
+                if not (end < sel_start or start > sel_end):
+                    overlap = True
+                    break
+
+            if not overlap:
+                selected_moments.append((start, end))
+                current_duration += (end - start) / fps
+
+            if current_duration >= min_bestof_duration:
+             break
+    # 3. Tri chronologique pour garder un best-of cohérent
+    selected_moments = sorted(selected_moments, key=lambda x: x[0])
+
+    # 4. Fusion des segments trop proches
+    merge_gap_seconds = 1.0
+    merge_gap_frames = int(merge_gap_seconds * fps)
+    selected_moments = merge_close_segments(selected_moments, merge_gap_frames) #On définit une fonction pour fusionner les segments sélectionnés qui sont trop proches les uns des autres, en utilisant un critère de distance en secondes (converti en frames) pour déterminer si deux segments doivent être fusionnés, cela permet de créer un best-of plus fluide et cohérent en évitant d'avoir des coupures trop fréquentes ou des segments très courts qui pourraient diluer l'impact du best-of, en parcourant la liste des segments sélectionnés et en fusionnant ceux qui sont séparés par une distance inférieure au seuil défini, on peut obtenir une liste finale de segments qui représentent les moments forts de la vidéo de manière plus naturelle et engageante pour le spectateur.
+
+    # 5. Recalcul de la durée après fusion
+    current_duration = 0
+    for start, end in selected_moments:
+        current_duration += (end - start) / fps
+
+    print("Segments sélectionnés pour le best-of :", selected_moments)
+    print(f"Nombre de segments sélectionnés : {len(selected_moments)}")
+    print(f"Durée vidéo : {video_duration:.2f}s")
+    print(f"Durée minimum best-of : {min_bestof_duration:.2f}s")
+    print(f"Durée best-of généré : {current_duration:.2f}s")
+
     export_best_of(video_path, selected_moments)
+    
     if len(moments) > 0:
         generate_thumbnail(video_path, moments[0], motion_array)
     else:
         print("⚠️ Aucun moment fort détecté, miniature non générée") # On apelle la fonction pour affichier la miniature a codition qu'il existe au moins 1 moment fort
 
+   
 
-def export_best_of(video_path, moments, output_name="best_of.mp4"):
+def export_best_of(video_path, moments, output_name="best_of.mp4"): #On définit une fonction pour exporter un best-of de la vidéo en utilisant OpenCV pour lire la vidéo originale et écrire un nouveau fichier vidéo qui contient uniquement les segments correspondant aux moments forts détectés, en utilisant les indices de frames des moments forts pour extraire les segments de la vidéo originale, et en combinant ces segments dans un nouveau fichier vidéo avec une qualité et un format appropriés, cela permet de créer un best-of personnalisé qui met en avant les moments les plus significatifs de la vidéo, tout en offrant une expérience de visionnage plus concise et plus engageante pour l'utilisateur
     cap = cv2.VideoCapture(video_path)
 
     if not cap.isOpened():
@@ -239,6 +297,8 @@ def export_best_of(video_path, moments, output_name="best_of.mp4"):
 
     print(f"✅ Best-of exporté : {output_path}")
 
+    
+
 def generate_thumbnail(video_path, moment, motion_array):
 
     start, end, score = moment
@@ -258,4 +318,24 @@ def generate_thumbnail(video_path, moment, motion_array):
 
     cap.release()
 # On peut ajouter une fonction pour générer une miniature de la vidéo à partir du moment fort le plus significatif, en utilisant OpenCV pour capturer une frame spécifique de la vidéo correspondant au début du moment fort, puis en sauvegardant cette frame comme une image PNG dans le dossier d'outputs, cela permet d'avoir une représentation visuelle du moment fort le plus important de la vidéo, qui peut être utilisée comme vignette ou aperçu pour le best-of généré.
-    
+
+
+def merge_close_segments(segments, max_gap_frames): #On définit une fonction pour fusionner les segments qui sont trop proches les uns des autres, en utilisant un critère de distance en frames pour déterminer si deux segments doivent être fusionnés, cela permet de créer un best-of plus fluide et cohérent en évitant d'avoir des coupures trop fréquentes ou des segments très courts qui pourraient diluer l'impact du best-of, en parcourant la liste des segments et en fusionnant ceux qui sont séparés par une distance inférieure au seuil défini, on peut obtenir une liste finale de segments qui représentent les moments forts de la vidéo de manière plus naturelle et engageante pour le spectateur.
+    if not segments:
+        return []
+
+    # segments triés par début
+    segments = sorted(segments, key=lambda x: x[0])
+
+    merged = [segments[0]]
+
+    for current_start, current_end in segments[1:]:
+        last_start, last_end = merged[-1]
+
+        # si l'écart entre les deux segments est petit, on fusionne
+        if current_start - last_end <= max_gap_frames:
+            merged[-1] = (last_start, max(last_end, current_end))
+        else:
+            merged.append((current_start, current_end))
+
+    return merged
