@@ -545,3 +545,62 @@ plt.close()
 print(f"🧠 Graphe fusionné sauvegardé : {combined_plot_path}")
 
 Ce graphique permet de rendre compte des deux analyses (video et audio)
+
+
+## Problème durant l'export
+
+le son n'était pas présent lors de l'export du best-of, j'ai donc fais une modification dans la fonction export best of
+
+l’utilisation de OpenCV permettait de générer le best-of vidéo, mais sans conserver la piste audio. Cette partie a donc été remplacée par un export utilisant moviepy, qui permet de découper et concaténer les segments tout en conservant le son original.
+
+## ajout d'un coef k pour controller le seuil de détéction audio
+
+Afin de rendre le système plus adaptable, le coefficient k utilisé dans le calcul du seuil audio a été rendu paramétrable. Ce paramètre permet d’ajuster la sensibilité de la détection audio selon le type de vidéo ou le niveau de sélectivité souhaité par l’utilisateur. Afin de rendre le système plus adaptable, le coefficient k utilisé dans le calcul du seuil audio a été rendu paramétrable. Ce paramètre permet d’ajuster la sensibilité de la détection audio selon le type de vidéo ou le niveau de sélectivité souhaité par l’utilisateur.
+
+À quoi correspondent les choix :
+
+sensible
+k_audio = 0.4
+
+Détecte plus de pics audio.
+Utile si tu veux capter :
+
+petits sons
+réactions modérées
+vidéos calmes
+
+equilibree
+k_audio = 0.7
+
+Bon compromis.
+C’est le réglage conseillé par défaut.
+
+stricte
+k_audio = 1.2
+
+Ne garde que les sons vraiment marqués.
+Utile pour éviter les faux positifs.
+
+## ajout d'un coef pour controller le seuil de détéction vidéo
+
+Les seuils de détection vidéo ont été rendus paramétrables afin de permettre une adaptation du système au type de contenu analysé. Deux paramètres distincts sont utilisés : l’un pour la détection des coupures de scène et l’autre pour la détection des moments forts. Pour faciliter l’usage, ces paramètres sont associés à trois niveaux de sensibilité : sensible, équilibré et strict.
+
+Sensible
+k_video_cut = 1.5
+k_video_highlight = 0.5
+détecte plus de coupures
+détecte plus de moments forts
+plus sensible, mais plus de faux positifs
+
+Équilibrée
+k_video_cut = 2.0
+k_video_highlight = 0.7
+bon compromis
+réglage conseillé par défaut
+
+Stricte
+k_video_cut = 2.5
+k_video_highlight = 1.0
+moins de coupures détectées
+moins de moments forts
+plus sélectif

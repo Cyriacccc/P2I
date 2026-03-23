@@ -3,11 +3,11 @@ import numpy as np
 import csv
 from pathlib import Path
 import matplotlib.pyplot as plt
-from moviepy import VideoFileClip
+from moviepy import VideoFileClip, concatenate_videoclips
 
 
 
-def analyze_video(video_path: str):
+def analyze_video(video_path: str,  k_audio=0.7, k_video_cut=2.0, k_video_highlight=0.7):
     """
     Analyse avancée :
     - Lecture frame par frame
@@ -98,19 +98,24 @@ def analyze_video(video_path: str):
         combined_array = motion_norm
 
     if len(audio_array) > 0:
-        audio_norm = normalize_signal(audio_array)
-        audio_threshold = np.mean(audio_norm) + 0.7 * np.std(audio_norm)
-        audio_peaks = np.where(audio_norm > audio_threshold)[0]
+        audio_norm = normalize_signal(audio_array) #On normalise les scores audio pour les mettre sur une échelle comparable à celle des scores de mouvement, cela permet de combiner les deux types de données de manière plus efficace, en utilisant une fonction de normalisation qui ajuste les valeurs pour qu'elles soient comprises entre 0 et 1, en utilisant cette approche, nous pouvons intégrer les informations audio dans notre analyse globale pour identifier les moments forts de la vidéo qui combinent à la fois un mouvement significatif et un pic audio, ce qui peut correspondre à des scènes d'action ou des événements clés dans la vidéo.
+        audio_threshold = np.mean(audio_norm) + k_audio* np.std(audio_norm) 
+        audio_peaks = np.where(audio_norm > audio_threshold)[0] #On trouve les indices des frames où le score audio normalisé dépasse le seuil défini, ces indices représentent les moments où l'audio est significativement plus fort que la moyenne, ce qui peut correspondre à des événements importants dans la vidéo, en utilisant ces indices de pics audio, nous pouvons les visualiser sur le graphe de l'audio et les prendre en compte dans l'analyse globale pour identifier les moments forts qui combinent à la fois un mouvement significatif et un pic audio, ce qui peut correspondre à des scènes d'action ou des événements clés dans la vidéo.
+
+       
     else:
         audio_norm = np.array([])
         audio_threshold = 0
         audio_peaks = []
 
 
+    mean_audio = np.mean(audio_norm)
+    std_audio = np.std(audio_norm)
+
     mean_motion = np.mean(motion_array) #On calcule la moyenne des scores de mouvement pour avoir une idée générale du niveau de mouvement dans la vidéo
     std_motion = np.std(motion_array) #On calcule l'écart-type des scores de mouvement pour mesurer la variabilité du mouvement dans la vidéo, un écart-type élevé indique que le mouvement varie beaucoup d'une frame à l'autre, tandis qu'un écart-type faible indique que le mouvement est plus constant
 
-    threshold = mean_motion + 2 * std_motion #On définit un seuil de détection de coupures de scène en utilisant la moyenne et l'écart-type des scores de mouvement, les frames dont le score de mouvement dépasse ce seuil seront considérées comme des coupures de scène potentielles
+    threshold = mean_motion + k_video_cut * std_motion #On définit un seuil de détection pour les coupures de scène en utilisant la moyenne et l'écart-type des scores de mouvement, en multipliant l'écart-type par un coefficient k pour ajuster la sensibilité de la détection, plus k est élevé, plus le seuil sera strict et moins il y aura de coupures détectées, tandis que plus k est bas, plus le seuil sera sensible et plus il y aura de coupures détectées, en utilisant ce seuil, nous pouvons identifier les frames où le mouvement est significativement plus élevé que la moyenne, ce qui peut correspondre à des coupures de scène ou des moments d'action importants dans la vidéo.
     raw_cuts = np.where(motion_array > threshold)[0] #On trouve les indices des frames dont le score de mouvement dépasse le seuil, ces indices représentent les frames où il y a potentiellement une coupure de scène
 
     scene_cuts = [] #On initialise une liste pour stocker les indices des coupures de scène finales après filtrage pour éviter les faux positifs causés par des mouvements rapides ou des changements de lumière temporaires
@@ -141,10 +146,21 @@ def analyze_video(video_path: str):
 
 
     print("✅ Analyse terminée")
+    print("\n🎬 Analyse Video")
     print(f"Mouvement moyen : {mean_motion:.2f}")
     print(f"Écart-type : {std_motion:.2f}")
+    print(f"Coefficient k_video_cut : {k_video_cut:.2f}")
     print(f"Seuil de détection : {threshold:.2f}")
     print(f"Nombre de coupures détectées : {len(scene_cuts)}")
+    print("\n🔊 Analyse audio :")
+    print(f"Audio moyen : {mean_audio:.2f}")
+    print(f"Écart-type audio : {std_audio:.2f}")
+    print(f"Coefficient k audio : {k_audio:.2f}")
+    print(f"Seuil audio : {audio_threshold:.2f}")
+    print(f"Nombre de pics audio : {len(audio_peaks)}")
+
+    
+
 
 
  
@@ -239,7 +255,10 @@ def analyze_video(video_path: str):
         return np.convolve(data, np.ones(window_size)/window_size, mode='same') 
 
     smoothed_motion = moving_average(combined_array, window_size=7) #On applique la fonction de moyenne mobile au tableau de scores de mouvement pour obtenir une version lissée de ces scores, cela permet de réduire le bruit et les fluctuations temporaires dans les données, ce qui facilite la détection des moments forts où le mouvement est significativement plus élevé que la moyenne générale
-    dynamic_threshold = np.mean(smoothed_motion) + 0.7 * np.std(smoothed_motion) # On applique une méthode de seuil dynamique pour identifier les moments forts, en calculant une nouvelle moyenne et un nouvel écart-type à partir des scores de mouvement lissés, et en définissant un seuil qui est plus bas que celui utilisé pour les coupures de scène, cela permet de détecter des moments où le mouvement est élevé mais pas nécessairement au point de constituer une coupure de scène, ce qui peut correspondre à des moments d'action ou d'intérêt dans la vidéo
+    dynamic_threshold = np.mean(smoothed_motion) + k_video_highlight * np.std(smoothed_motion) #On définit un seuil dynamique pour la détection des moments forts en utilisant la moyenne et l'écart-type des scores de mouvement lissés, en multipliant l'écart-type par un coefficient k pour ajuster la sensibilité de la détection des moments forts, plus k est élevé, plus le seuil sera strict et moins il y aura de moments forts détectés, tandis que plus k est bas, plus le seuil sera sensible et plus il y aura de moments forts détectés, en utilisant ce seuil dynamique, nous pouvons identifier les frames où le mouvement lissé est significativement plus élevé que la moyenne, ce qui peut correspondre à des scènes d'action ou des événements importants dans la vidéo.
+
+    print(f"Coefficient k_video_highlight : {k_video_highlight:.2f}")
+    print(f"Seuil des moments forts : {dynamic_threshold:.2f}")
 
     high_motion_frames = np.where(smoothed_motion > dynamic_threshold)[0] # On trouve les indices des frames où le score de mouvement lissé dépasse le seuil dynamique, ces indices représentent les moments forts potentiels dans la vidéo, où il y a un niveau de mouvement significatif qui pourrait correspondre à des scènes d'action ou des événements importants
 
@@ -338,42 +357,42 @@ def analyze_video(video_path: str):
 
    
 
-def export_best_of(video_path, moments, output_name="best_of.mp4"): #On définit une fonction pour exporter un best-of de la vidéo en utilisant OpenCV pour lire la vidéo originale et écrire un nouveau fichier vidéo qui contient uniquement les segments correspondant aux moments forts détectés, en utilisant les indices de frames des moments forts pour extraire les segments de la vidéo originale, et en combinant ces segments dans un nouveau fichier vidéo avec une qualité et un format appropriés, cela permet de créer un best-of personnalisé qui met en avant les moments les plus significatifs de la vidéo, tout en offrant une expérience de visionnage plus concise et plus engageante pour l'utilisateur
-    cap = cv2.VideoCapture(video_path)
-
-    if not cap.isOpened():
-        print("❌ Impossible d'ouvrir la vidéo pour export")
-        return
-
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+def export_best_of(video_path, moments, output_name="best_of.mp4"):
+    # On exporte un best-of avec conservation de l'audio
+    # en découpant les segments directement dans la vidéo source
+    # puis en les concaténant avec moviepy.
 
     base_path = Path(__file__).resolve().parent.parent
     output_path = base_path / "outputs" / output_name
 
-    out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
-    print("Writer ouvert ?", out.isOpened())
-    print("FPS:", fps)
-    print("Width:", width)
-    print("Height:", height)
+    print("🎬 Génération du best-of avec audio...")
 
-    print("🎬 Génération du best-of...")
+    video = VideoFileClip(video_path)
+    clips = []
 
     for start, end in moments:
+        start_sec = start / video.fps
+        end_sec = end / video.fps
 
-        cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+        if end_sec > start_sec:
+            clip = video.subclipped(start_sec, end_sec)
+            clips.append(clip)
 
-        for frame_idx in range(start, end):
-            ret, frame = cap.read()
-            if not ret:
-                break
-            out.write(frame)
+    if not clips:
+        print("⚠️ Aucun segment à exporter pour le best-of")
+        video.close()
+        return
 
-    cap.release()
-    out.release()
+    final_clip = concatenate_videoclips(clips)
+
+    final_clip.write_videofile(
+        str(output_path),
+        codec="libx264",
+        audio_codec="aac"
+    )
+
+    final_clip.close()
+    video.close()
 
     print(f"✅ Best-of exporté : {output_path}")
 
