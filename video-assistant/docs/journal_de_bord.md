@@ -387,7 +387,7 @@ on crée une focntion
 
 
 
-    
+
 
 ## semaine 7
 
@@ -483,3 +483,65 @@ Je remplace motion_array par combined_array ici :
 smoothed_motion = moving_average(motion_array, window_size=7)
 Devient : 
 smoothed_motion = moving_average(combined_array, window_size=7)
+
+## Etape 8 
+
+Ajout d'un seuil audio pour l'étude d'un graphique
+
+if len(audio_array) > 0:
+    audio_norm = normalize_signal(audio_array)
+    audio_threshold = np.mean(audio_norm) + 0.7 * np.std(audio_norm)
+    audio_peaks = np.where(audio_norm > audio_threshold)[0]
+else:
+    audio_norm = np.array([])
+    audio_threshold = 0
+    audio_peaks = []
+
+## Etape 9 
+
+Ajout du graphique audio juste en dessous du graphique video: (Analyse graphique)
+
+if len(audio_norm) > 0:
+    audio_plot_path = base_path / "outputs" / "audio_plot.png"
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(audio_norm, label="Audio Score")
+    plt.axhline(y=audio_threshold, color='r', linestyle='--', label="Seuil audio")
+
+    for peak in audio_peaks:
+        plt.axvline(x=peak, color='orange', linestyle=':', alpha=0.6)
+
+    plt.title("Analyse Audio")
+    plt.xlabel("Frame Index")
+    plt.ylabel("Audio Energy (normalisée)")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(audio_plot_path)
+    plt.close()
+
+    print(f"🔊 Graphe audio sauvegardé : {audio_plot_path}")
+
+    Le graphique montre la courbe d'énérgie sonore, le seuil de détéction et les pics.
+
+    Enfin J'ajoute un graphique des deux analyses combinés :
+
+    combined_plot_path = base_path / "outputs" / "combined_plot.png"
+
+plt.figure(figsize=(12, 6))
+plt.plot(combined_array, label="Score fusionné")
+plt.axhline(y=np.mean(combined_array) + 0.7 * np.std(combined_array),
+            color='r', linestyle='--', label="Seuil fusionné")
+
+plt.title("Analyse Fusionnée Audio + Vidéo")
+plt.xlabel("Frame Index")
+plt.ylabel("Score fusionné")
+plt.legend()
+
+plt.tight_layout()
+plt.savefig(combined_plot_path)
+plt.close()
+
+print(f"🧠 Graphe fusionné sauvegardé : {combined_plot_path}")
+
+Ce graphique permet de rendre compte des deux analyses (video et audio)

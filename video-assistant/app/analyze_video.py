@@ -97,6 +97,15 @@ def analyze_video(video_path: str):
         motion_norm = normalize_signal(motion_array)
         combined_array = motion_norm
 
+    if len(audio_array) > 0:
+        audio_norm = normalize_signal(audio_array)
+        audio_threshold = np.mean(audio_norm) + 0.7 * np.std(audio_norm)
+        audio_peaks = np.where(audio_norm > audio_threshold)[0]
+    else:
+        audio_norm = np.array([])
+        audio_threshold = 0
+        audio_peaks = []
+
 
     mean_motion = np.mean(motion_array) #On calcule la moyenne des scores de mouvement pour avoir une idée générale du niveau de mouvement dans la vidéo
     std_motion = np.std(motion_array) #On calcule l'écart-type des scores de mouvement pour mesurer la variabilité du mouvement dans la vidéo, un écart-type élevé indique que le mouvement varie beaucoup d'une frame à l'autre, tandis qu'un écart-type faible indique que le mouvement est plus constant
@@ -154,7 +163,8 @@ def analyze_video(video_path: str):
 
     print(f"📄 Fichier exporté : {output_path}")
 
-        # ===== VISUALISATION =====
+        # ===== VISUALISATION VIDEO =====
+        
     base_path = Path(__file__).resolve().parent.parent #On visualise les résultats de l'analyse en créant un graphe du score de mouvement au fil des frames, en utilisant matplotlib pour tracer le graphe, on définit la taille du graphe et on trace la courbe du score de mouvement, on ajoute une ligne horizontale pour indiquer le seuil de détection, et des lignes verticales pour marquer les coupures de scène détectées, on ajoute des titres et des labels pour rendre le graphe plus lisible, puis on sauvegarde le graphe dans le dossier d'outputs avec un nom de fichier descriptif, cela permet d'avoir une représentation visuelle claire du mouvement dans la vidéo et des moments où des coupures de scène ont été détectées
     plot_path = base_path / "outputs" / "motion_plot.png" #On définit le chemin complet vers le fichier PNG où nous allons sauvegarder le graphe du score de mouvement, en utilisant le dossier d'outputs pour organiser les fichiers générés par l'application
 
@@ -175,6 +185,53 @@ def analyze_video(video_path: str):
     plt.close()
 
     print(f"📈 Graphe sauvegardé : {plot_path}")
+
+        # ===== VISUALISATION AUDIO=====
+
+    if len(audio_norm) > 0:
+            audio_plot_path = base_path / "outputs" / "audio_plot.png"
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(audio_norm, label="Audio Score")
+    plt.axhline(y=audio_threshold, color='r', linestyle='--', label="Seuil audio")
+
+    for peak in audio_peaks:
+        plt.axvline(x=peak, color='orange', linestyle=':', alpha=0.6)
+
+    plt.title("Analyse Audio")
+    plt.xlabel("Frame Index")
+    plt.ylabel("Audio Energy (normalisée)")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(audio_plot_path)
+    plt.close()
+
+    print(f"🔊 Graphe audio sauvegardé : {audio_plot_path}")
+
+
+
+        # ===== VISUALISATION VIDEO + AUDIO =====
+
+    combined_plot_path = base_path / "outputs" / "combined_plot.png"
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(combined_array, label="Score fusionné")
+    plt.axhline(y=np.mean(combined_array) + 0.7 * np.std(combined_array),
+            color='r', linestyle='--', label="Seuil fusionné")
+
+    plt.title("Analyse Fusionnée Audio + Vidéo")
+    plt.xlabel("Frame Index")
+    plt.ylabel("Score fusionné")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(combined_plot_path)
+    plt.close()
+
+    print(f"🧠 Graphe fusionné sauvegardé : {combined_plot_path}")
+    
+
         # ===== DÉTECTION DES MOMENTS FORTS =====
 
     def moving_average(data, window_size=7): #On définit une fonction pour calculer la moyenne mobile d'une série de données, cela permet de lisser les fluctuations du score de mouvement et de mieux identifier les tendances générales, en utilisant une fenêtre de taille spécifiée pour calculer la moyenne des valeurs dans cette fenêtre, on utilise la fonction np.convolve pour appliquer la moyenne mobile à la série de scores de mouvement, en normalisant par la taille de la fenêtre pour obtenir une moyenne correcte, le mode 'same' permet de conserver la même taille que les données d'origine, ce qui facilite l'analyse des résultats par rapport aux indices de frames
