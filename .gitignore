@@ -180,5 +180,3 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-*.mp4
-data/
