@@ -3,6 +3,8 @@ import numpy as np
 import csv
 from pathlib import Path
 import matplotlib.pyplot as plt
+from moviepy import VideoFileClip
+
 
 
 def analyze_video(video_path: str):
@@ -74,6 +76,27 @@ def analyze_video(video_path: str):
     cap.release() #On libère la ressource de la vidéo maintenant que nous avons fini de l'analyser
 
     motion_array = np.array(motion_scores) #On convertit la liste de scores de mouvement en un tableau numpy pour faciliter les calculs statistiques et l'analyse des données
+
+
+
+    audio_array = compute_audio_scores(video_path, fps)
+
+    print("Taille motion_array :", len(motion_array))
+    print("Taille audio_array :", len(audio_array))
+
+    if len(audio_array) > 0:
+        min_length = min(len(motion_array), len(audio_array))
+        motion_array = motion_array[:min_length]
+        audio_array = audio_array[:min_length]
+
+        motion_norm = normalize_signal(motion_array)
+        audio_norm = normalize_signal(audio_array)
+
+        combined_array = 0.7 * motion_norm + 0.3 * audio_norm
+    else:
+        motion_norm = normalize_signal(motion_array)
+        combined_array = motion_norm
+
 
     mean_motion = np.mean(motion_array) #On calcule la moyenne des scores de mouvement pour avoir une idée générale du niveau de mouvement dans la vidéo
     std_motion = np.std(motion_array) #On calcule l'écart-type des scores de mouvement pour mesurer la variabilité du mouvement dans la vidéo, un écart-type élevé indique que le mouvement varie beaucoup d'une frame à l'autre, tandis qu'un écart-type faible indique que le mouvement est plus constant
@@ -158,7 +181,7 @@ def analyze_video(video_path: str):
 
         return np.convolve(data, np.ones(window_size)/window_size, mode='same') 
 
-    smoothed_motion = moving_average(motion_array, window_size=7) #On applique la fonction de moyenne mobile au tableau de scores de mouvement pour obtenir une version lissée de ces scores, cela permet de réduire le bruit et les fluctuations temporaires dans les données, ce qui facilite la détection des moments forts où le mouvement est significativement plus élevé que la moyenne générale
+    smoothed_motion = moving_average(combined_array, window_size=7) #On applique la fonction de moyenne mobile au tableau de scores de mouvement pour obtenir une version lissée de ces scores, cela permet de réduire le bruit et les fluctuations temporaires dans les données, ce qui facilite la détection des moments forts où le mouvement est significativement plus élevé que la moyenne générale
     dynamic_threshold = np.mean(smoothed_motion) + 0.7 * np.std(smoothed_motion) # On applique une méthode de seuil dynamique pour identifier les moments forts, en calculant une nouvelle moyenne et un nouvel écart-type à partir des scores de mouvement lissés, et en définissant un seuil qui est plus bas que celui utilisé pour les coupures de scène, cela permet de détecter des moments où le mouvement est élevé mais pas nécessairement au point de constituer une coupure de scène, ce qui peut correspondre à des moments d'action ou d'intérêt dans la vidéo
 
     high_motion_frames = np.where(smoothed_motion > dynamic_threshold)[0] # On trouve les indices des frames où le score de mouvement lissé dépasse le seuil dynamique, ces indices représentent les moments forts potentiels dans la vidéo, où il y a un niveau de mouvement significatif qui pourrait correspondre à des scènes d'action ou des événements importants
@@ -339,3 +362,43 @@ def merge_close_segments(segments, max_gap_frames): #On définit une fonction po
             merged.append((current_start, current_end))
 
     return merged
+
+
+
+def compute_audio_scores(video_path, fps):
+    video = VideoFileClip(video_path)
+
+    if video.audio is None:
+        print("⚠️ Pas de piste audio détectée")
+        return np.array([])
+
+    audio = video.audio.to_soundarray(fps=22050)
+
+    # si audio stéréo, on moyenne les deux canaux
+    if len(audio.shape) > 1:
+        audio = np.mean(audio, axis=1)
+
+    samples_per_frame = int(22050 / fps)
+    audio_scores = []
+
+    for i in range(0, len(audio), samples_per_frame):
+        chunk = audio[i:i + samples_per_frame]
+
+        if len(chunk) > 0:
+            energy = np.mean(np.abs(chunk))
+            audio_scores.append(energy)
+
+    return np.array(audio_scores)
+
+
+def normalize_signal(signal):
+    if len(signal) == 0:
+        return signal
+
+    min_val = np.min(signal)
+    max_val = np.max(signal)
+
+    if max_val - min_val == 0:
+        return signal
+
+    return (signal - min_val) / (max_val - min_val)

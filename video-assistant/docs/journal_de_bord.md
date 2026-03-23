@@ -385,4 +385,101 @@ on crée une focntion
 
     Je fais le dernier commit de la semaine 6 et je passe a la semaine 7, je suis obligé de faire une modif pour faire un  nouveau commit qui explique ce que j'ai fait avant donc c'est pour ca que j'écris ceci.
 
+
+
+    
+
 ## semaine 7
+
+Durant cette semaine, je vais m'intéressé a l'analyse audio, ce qui va me permettre d'avoir une analyse bien plus réaliste.
+
+## Etape 1
+
+j'installe moviepy pour extraire l'audio : pip install moviepy
+
+en haut de mon code analyze_video j'ajoute : 
+
+from moviepy import VideoFileClip
+
+## Etape 2 
+
+mon première objectif est de crée un score audio global 
+
+J'ajoute une fonction qui me permet d'ouvrire la vidéo, récupérer l'audio, découper l'audio en petits morceaux synchronisés avec les frames et calculer l'intensité moyenne de chaque morceau :
+
+from moviepy import VideoFileClip
+import numpy as np
+
+def compute_audio_scores(video_path, fps):
+    video = VideoFileClip(video_path)
+
+    if video.audio is None:
+        print("Pas de piste audio détectée")
+        return np.array([])
+
+    audio = video.audio.to_soundarray(fps=22050)
+
+    # si stéréo, on moyenne les deux canaux
+    if len(audio.shape) > 1:
+        audio = np.mean(audio, axis=1)
+
+    samples_per_frame = int(22050 / fps)
+    audio_scores = []
+
+    for i in range(0, len(audio), samples_per_frame):
+        chunk = audio[i:i + samples_per_frame]
+
+        if len(chunk) > 0:
+            energy = np.mean(np.abs(chunk))
+            audio_scores.append(energy)
+
+    return np.array(audio_scores)
+
+la fonction retourne une liste de score, plus la valeur est grande, plus le moment a une intensité sonore forte.
+
+## Etape 3
+
+après motion_array = np.array(motion_scores)
+j'ajoute : 
+audio_array = compute_audio_scores(video_path, fps)
+
+## Etape 5 
+
+Comme les valeurs n'ont pas la meme échelle, il faut les ramener entre 0 et 1
+
+J'ajoute une fonction pour normaliser:
+
+def normalize_signal(signal):
+    if len(signal) == 0:
+        return signal
+
+    min_val = np.min(signal)
+    max_val = np.max(signal)
+
+    if max_val - min_val == 0:
+        return signal
+
+    return (signal - min_val) / (max_val - min_val)
+
+
+Puis dans analyze_video : 
+
+motion_norm = normalize_signal(motion_array)
+audio_norm = normalize_signal(audio_array)
+
+## Etape 6 
+
+Je fusionne les deux : 
+
+combined_array = 0.7 * motion_norm + 0.3 * audio_norm
+
+je met 70 pourcent pour l'image et 30 pourcent pour l'audio 
+Cela me parait plutot cohérent étant donnée que l'analyse video reste quand meme plus importante.
+
+## Etape 7 
+
+Je remplace motion_array par combined_array ici : 
+
+smoothed_motion = moving_average(motion_array, window_size=7)
+Devient : 
+smoothed_motion = moving_average(combined_array, window_size=7)
