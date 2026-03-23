@@ -382,3 +382,7 @@ on crée une focntion
     current_duration = 0
     for start, end in selected_moments:
         current_duration += (end - start) / fps
+
+    Je fais le dernier commit de la semaine 6 et je passe a la semaine 7, je suis obligé de faire une modif pour faire un  nouveau commit qui explique ce que j'ai fait avant donc c'est pour ca que j'écris ceci.
+
+## semaine 7
