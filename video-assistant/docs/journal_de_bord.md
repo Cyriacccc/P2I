@@ -542,7 +542,7 @@ plt.tight_layout()
 plt.savefig(combined_plot_path)
 plt.close()
 
-print(f"🧠 Graphe fusionné sauvegardé : {combined_plot_path}")
+print(f"Graphe fusionné sauvegardé : {combined_plot_path}")
 
 Ce graphique permet de rendre compte des deux analyses (video et audio)
 
@@ -604,3 +604,17 @@ k_video_highlight = 1.0
 moins de coupures détectées
 moins de moments forts
 plus sélectif
+
+## semaine 8
+
+J'ai refactoriser mon code pour séparer les différentes étapes at pour que ce soit plus clair pour moi étant donnée que je commencais a avoir beaucoup de lignes de codes:
+
+
+video_analysis.py → analyse image / cuts
+analyze_audio.py → analyse audio
+highlight_detection.py → moments forts + sélection du best-of
+visualization.py → graphes
+export.py → export du best-of
+thumbnail.py → miniature
+utils.py → fonctions génériques
+analyze_video.py → orchestration globale
