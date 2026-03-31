@@ -5,7 +5,7 @@ import numpy as np
 from app.analyze_audio import compute_audio_scores
 from app.export import export_best_of
 from app.thumbnail import generate_thumbnail
-from app.utils import normalize_signal
+from app.utils import normalize_signal, moving_average
 from app.video_analysis import (
     compute_motion_scores,
     detect_scene_cuts,
@@ -46,6 +46,7 @@ def print_video_stats(mean_motion, std_motion, k_video_cut, threshold, scene_cut
     print(f"k_video_cut : {k_video_cut:.2f}")
     print(f"Seuil : {threshold:.2f}")
     print(f"Coupures : {len(scene_cuts)}")
+    
 
 
 def print_audio_stats(mean_audio, std_audio, k_audio, audio_threshold, audio_peaks):
@@ -145,9 +146,14 @@ def analyze_video(video_path: str, k_audio=0.7, k_video_cut=2.0, k_video_highlig
     export_scene_cuts_csv(base_path, scene_cuts, motion_array, fps)
 
     # === 7. Graphiques ===
-    save_motion_plot(base_path, motion_array, threshold, scene_cuts)
+    save_motion_plot(base_path, motion_norm, threshold, scene_cuts)
     save_audio_plot(base_path, audio_norm, audio_threshold, audio_peaks)
-    save_combined_plot(base_path, combined_array)
+    smoothed_motion = moving_average(combined_array, window_size=PLOT_WINDOW_SIZE)
+    dynamic_threshold = np.mean(smoothed_motion) + k_video_highlight * np.std(smoothed_motion)
+    
+    
+
+    save_combined_plot(base_path, smoothed_motion, dynamic_threshold)
 
     # === 8. Détection moments forts ===
     moments, smoothed_motion, dynamic_threshold = detect_highlights(

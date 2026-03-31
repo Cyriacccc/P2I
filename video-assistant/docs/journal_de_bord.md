@@ -622,3 +622,6 @@ analyze_video.py → orchestration globale
 Ensuite j'ai affcihé les valeurs de l'analyse vidéo normalisé sur le graphe de l'analyse vidéo car je ne l'avais pas fait
 
 Le code a été restructuré afin de séparer les différentes étapes de traitement (analyse vidéo, audio, fusion, sélection des moments et export). Cette organisation améliore la lisibilité et facilite la maintenance du projet.
+
+normalisation dans la console de l'analyse vidéo
+Les scores de mouvement ont été normalisés afin d’obtenir une échelle comprise entre 0 et 1, permettant une meilleure interprétation des résultats et une cohérence avec l’analyse audio. On remplace motion_array par motion_norm.

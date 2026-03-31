@@ -4,16 +4,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def save_motion_plot(base_path, motion_array, threshold, scene_cuts):
+def save_motion_plot(base_path, motion_norm, video_cut_threshold, scene_cuts):
     plot_path = base_path / "outputs" / "motion_plot.png"
 
     plt.figure(figsize=(12, 6))
-    motion_norm = (motion_array - np.min(motion_array)) / (np.max(motion_array) - np.min(motion_array))
-
-    threshold_norm = (threshold - np.min(motion_array)) / (np.max(motion_array) - np.min(motion_array))
-
     plt.plot(motion_norm, label="Motion Score (normalisé)")
-    plt.axhline(y=threshold_norm, color='r', linestyle='--', label="Seuil")
+    plt.axhline(
+        y=video_cut_threshold,
+        color='r',
+        linestyle='--',
+        label="Seuil"
+    )
 
     for cut in scene_cuts:
         plt.axvline(x=cut, color='g', linestyle=':', alpha=0.7)
@@ -28,7 +29,6 @@ def save_motion_plot(base_path, motion_array, threshold, scene_cuts):
     plt.close()
 
     print(f"📈 Graphe sauvegardé : {plot_path}")
-
 
 def save_audio_plot(base_path, audio_norm, audio_threshold, audio_peaks):
     if len(audio_norm) == 0:
@@ -55,15 +55,13 @@ def save_audio_plot(base_path, audio_norm, audio_threshold, audio_peaks):
     print(f"🔊 Graphe audio sauvegardé : {audio_plot_path}")
 
 
-def save_combined_plot(base_path, combined_array):
+def save_combined_plot(base_path, smoothed_motion, fusion_highlight_threshold):
     combined_plot_path = base_path / "outputs" / "combined_plot.png"
 
-    combined_threshold = np.mean(combined_array) + 0.7 * np.std(combined_array)
-
     plt.figure(figsize=(12, 6))
-    plt.plot(combined_array, label="Score fusionné")
+    plt.plot(smoothed_motion, label="Score fusionné lissé")
     plt.axhline(
-        y=combined_threshold,
+        y=fusion_highlight_threshold,
         color='r',
         linestyle='--',
         label="Seuil fusionné"

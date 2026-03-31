@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from app.utils import normalize_signal
 
 
 def compute_motion_scores(video_path):
@@ -63,11 +64,12 @@ def compute_motion_scores(video_path):
 
 
 def detect_scene_cuts(motion_array, fps, k_video_cut=2.0):
-    mean_motion = np.mean(motion_array)
-    std_motion = np.std(motion_array)
+    motion_norm = normalize_signal(motion_array)
 
+    mean_motion = np.mean(motion_norm)
+    std_motion = np.std(motion_norm)
     threshold = mean_motion + k_video_cut * std_motion
-    raw_cuts = np.where(motion_array > threshold)[0]
+    raw_cuts = np.where(motion_norm > threshold)[0]
 
     scene_cuts = []
     min_gap = int(fps * 0.5)

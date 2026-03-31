@@ -6,6 +6,7 @@ def detect_highlights(combined_array, fps, k_video_highlight=0.7, min_duration_s
     smoothed_motion = moving_average(combined_array, window_size=7)
 
     dynamic_threshold = np.mean(smoothed_motion) + k_video_highlight * np.std(smoothed_motion)
+    
     high_motion_frames = np.where(smoothed_motion > dynamic_threshold)[0]
 
     moments = []
