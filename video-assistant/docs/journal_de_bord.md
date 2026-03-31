@@ -618,3 +618,7 @@ export.py → export du best-of
 thumbnail.py → miniature
 utils.py → fonctions génériques
 analyze_video.py → orchestration globale
+
+Ensuite j'ai affcihé les valeurs de l'analyse vidéo normalisé sur le graphe de l'analyse vidéo car je ne l'avais pas fait
+
+Le code a été restructuré afin de séparer les différentes étapes de traitement (analyse vidéo, audio, fusion, sélection des moments et export). Cette organisation améliore la lisibilité et facilite la maintenance du projet.

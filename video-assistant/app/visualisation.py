@@ -1,4 +1,5 @@
 from pathlib import Path
+from cv2 import threshold
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -7,8 +8,12 @@ def save_motion_plot(base_path, motion_array, threshold, scene_cuts):
     plot_path = base_path / "outputs" / "motion_plot.png"
 
     plt.figure(figsize=(12, 6))
-    plt.plot(motion_array, label="Motion Score")
-    plt.axhline(y=threshold, color='r', linestyle='--', label="Seuil")
+    motion_norm = (motion_array - np.min(motion_array)) / (np.max(motion_array) - np.min(motion_array))
+
+    threshold_norm = (threshold - np.min(motion_array)) / (np.max(motion_array) - np.min(motion_array))
+
+    plt.plot(motion_norm, label="Motion Score (normalisé)")
+    plt.axhline(y=threshold_norm, color='r', linestyle='--', label="Seuil")
 
     for cut in scene_cuts:
         plt.axvline(x=cut, color='g', linestyle=':', alpha=0.7)
