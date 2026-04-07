@@ -625,3 +625,7 @@ Le code a été restructuré afin de séparer les différentes étapes de traite
 
 normalisation dans la console de l'analyse vidéo
 Les scores de mouvement ont été normalisés afin d’obtenir une échelle comprise entre 0 et 1, permettant une meilleure interprétation des résultats et une cohérence avec l’analyse audio. On remplace motion_array par motion_norm.
+
+## semaine 9 
+Commentaire sur le code 
+Fin du P2I, début du rapport finale !

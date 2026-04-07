@@ -19,26 +19,33 @@ from app.visualisation import (
 from app.highlight_detection import detect_highlights, select_bestof_segments
 
 
-# =========================
-# PARAMÈTRES
-# =========================
+
+# PARAMÈTRES GLOBAUX
+
+# Pondération utilisée lors de la fusion des scores audio et vidéo
 AUDIO_WEIGHT = 0.3
 VIDEO_WEIGHT = 0.7
+
+# Contraintes temporelles du traitement
 MIN_CUT_GAP_SECONDS = 0.5
 MIN_HIGHLIGHT_DURATION_SECONDS = 0.5
 MAX_SCENE_DURATION_SECONDS = 3.0
 MIN_BESTOF_RATIO = 0.2
 MIN_BESTOF_MOMENTS = 5
 MERGE_GAP_SECONDS = 1.0
+
+# Paramètre de lissage pour l'affichage du signal fusionné
 PLOT_WINDOW_SIZE = 7
 
+# Noms des fichiers exportés
 CSV_FILENAME = "scene_cuts.csv"
 THUMBNAIL_FILENAME = "thumbnail.png"
 
 
-# =========================
-# AFFICHAGE
-# =========================
+
+# AFFICHAGE DES STATISTIQUES
+
+# Affiche les indicateurs principaux de l'analyse vidéo
 def print_video_stats(mean_motion, std_motion, k_video_cut, threshold, scene_cuts):
     print("\n🎬 ANALYSE VIDÉO")
     print(f"Moyenne : {mean_motion:.2f}")
@@ -46,9 +53,9 @@ def print_video_stats(mean_motion, std_motion, k_video_cut, threshold, scene_cut
     print(f"k_video_cut : {k_video_cut:.2f}")
     print(f"Seuil : {threshold:.2f}")
     print(f"Coupures : {len(scene_cuts)}")
-    
 
 
+# Affiche les indicateurs principaux de l'analyse audio
 def print_audio_stats(mean_audio, std_audio, k_audio, audio_threshold, audio_peaks):
     print("\n🔊 ANALYSE AUDIO")
     print(f"Moyenne : {mean_audio:.2f}")
@@ -58,6 +65,7 @@ def print_audio_stats(mean_audio, std_audio, k_audio, audio_threshold, audio_pea
     print(f"Pics : {len(audio_peaks)}")
 
 
+# Affiche les informations finales sur le best-of généré
 def print_bestof_stats(selected_moments, video_duration, min_bestof_duration, current_duration):
     print("\n🎬 BEST-OF")
     print(f"Segments : {len(selected_moments)}")
@@ -66,9 +74,10 @@ def print_bestof_stats(selected_moments, video_duration, min_bestof_duration, cu
     print(f"Durée finale : {current_duration:.2f}s")
 
 
-# =========================
+
 # EXPORT CSV
-# =========================
+
+# Exporte la liste des coupures de scène détectées dans un fichier CSV
 def export_scene_cuts_csv(base_path, scene_cuts, motion_array, fps):
     output_path = base_path / "outputs" / CSV_FILENAME
 
@@ -83,23 +92,28 @@ def export_scene_cuts_csv(base_path, scene_cuts, motion_array, fps):
     print(f"📄 CSV exporté : {output_path}")
 
 
-# =========================
+
 # FONCTION PRINCIPALE
-# =========================
+
+# Exécute l'ensemble du pipeline d'analyse et de génération du best-of
 def analyze_video(video_path: str, k_audio=0.7, k_video_cut=2.0, k_video_highlight=0.7):
 
-    # === 1. Analyse vidéo ===
+    #  1. Analyse vidéo 
+    # Extraction du signal de mouvement à partir des frames
     motion_array, fps, frame_count = compute_motion_scores(video_path)
     if motion_array is None:
         return
 
-    # === 2. Analyse audio ===
+    # 2. Analyse audio 
+    # Extraction du signal audio synchronisé avec les frames vidéo
     audio_array = compute_audio_scores(video_path, fps)
 
     print("Taille motion_array :", len(motion_array))
     print("Taille audio_array :", len(audio_array))
 
-    # === 3. Alignement + normalisation ===
+    #  3. Alignement et normalisation des signaux 
+    # Si une piste audio existe, les deux signaux sont tronqués à la même taille
+    # puis fusionnés selon les poids définis
     if len(audio_array) > 0:
         min_length = min(len(motion_array), len(audio_array))
         motion_array = motion_array[:min_length]
@@ -110,11 +124,13 @@ def analyze_video(video_path: str, k_audio=0.7, k_video_cut=2.0, k_video_highlig
 
         combined_array = VIDEO_WEIGHT * motion_norm + AUDIO_WEIGHT * audio_norm
     else:
+        # En l'absence d'audio, seul le signal vidéo est utilisé
         motion_norm = normalize_signal(motion_array)
         audio_norm = np.array([])
         combined_array = motion_norm
 
-    # === 4. Analyse audio ===
+    #  4. Analyse statistique du signal audio 
+    # Détection des pics audio à l'aide d'un seuil dynamique
     if len(audio_array) > 0:
         audio_threshold = np.mean(audio_norm) + k_audio * np.std(audio_norm)
         audio_peaks = np.where(audio_norm > audio_threshold)[0]
@@ -126,11 +142,13 @@ def analyze_video(video_path: str, k_audio=0.7, k_video_cut=2.0, k_video_highlig
         mean_audio = 0
         std_audio = 0
 
-    # === 5. Détection des coupures ===
+    #  5. Détection des coupures de scène 
+    # Identification des transitions visuelles marquées
     mean_motion, std_motion, threshold, scene_cuts = detect_scene_cuts(
         motion_array, fps, k_video_cut=k_video_cut
     )
 
+    # Construction de segments exploitables à partir des coupures détectées
     scene_segments = build_scene_segments(
         scene_cuts,
         fps,
@@ -141,21 +159,23 @@ def analyze_video(video_path: str, k_audio=0.7, k_video_cut=2.0, k_video_highlig
     print_video_stats(mean_motion, std_motion, k_video_cut, threshold, scene_cuts)
     print_audio_stats(mean_audio, std_audio, k_audio, audio_threshold, audio_peaks)
 
-    # === 6. Export CSV ===
+    # 6. Export CSV 
+    # Sauvegarde des coupures détectées pour exploitation ou vérification
     base_path = Path(__file__).resolve().parent.parent
     export_scene_cuts_csv(base_path, scene_cuts, motion_array, fps)
 
-    # === 7. Graphiques ===
+    #  7. Génération des graphiques 
+    # Sauvegarde des visualisations des signaux vidéo, audio et fusionné
     save_motion_plot(base_path, motion_norm, threshold, scene_cuts)
     save_audio_plot(base_path, audio_norm, audio_threshold, audio_peaks)
+
     smoothed_motion = moving_average(combined_array, window_size=PLOT_WINDOW_SIZE)
     dynamic_threshold = np.mean(smoothed_motion) + k_video_highlight * np.std(smoothed_motion)
-    
-    
 
     save_combined_plot(base_path, smoothed_motion, dynamic_threshold)
 
-    # === 8. Détection moments forts ===
+    #  8. Détection des moments forts 
+    # Repérage des segments les plus intéressants à partir du signal fusionné
     moments, smoothed_motion, dynamic_threshold = detect_highlights(
         combined_array,
         fps,
@@ -171,7 +191,8 @@ def analyze_video(video_path: str, k_audio=0.7, k_video_cut=2.0, k_video_highlig
     for start, end, score in moments:
         print(f"- {start/fps:.2f}s → {end/fps:.2f}s | {score:.2f}")
 
-    # === 9. Sélection best-of ===
+    #  9. Sélection des segments du best-of 
+    # Sélection prioritaire des moments forts, complétés si besoin par des segments de scène
     selected_moments, video_duration, min_bestof_duration, current_duration = select_bestof_segments(
         moments,
         scene_segments,
@@ -184,10 +205,12 @@ def analyze_video(video_path: str, k_audio=0.7, k_video_cut=2.0, k_video_highlig
 
     print_bestof_stats(selected_moments, video_duration, min_bestof_duration, current_duration)
 
-    # === 10. Export vidéo ===
+    #  10. Export du best-of 
+    # Génération du montage final à partir des segments retenus
     export_best_of(video_path, selected_moments)
 
-    # === 11. Miniature ===
+    #  11. Génération de la miniature 
+    # Utilise le meilleur moment fort pour créer une image représentative
     if len(moments) > 0:
         generate_thumbnail(video_path, moments[0], motion_array)
     else:
