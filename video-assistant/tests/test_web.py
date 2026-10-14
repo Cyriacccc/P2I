@@ -63,10 +63,17 @@ def test_generates_and_serves_video(
         tmp_path, monkeypatch
     )
 
-    def fake_analyze_video(video_path, output_name, artifacts_dir=None):
+    
+    def fake_analyze_video(
+        video_path,
+        output_name="best_of.mp4",
+        artifacts_dir=None,
+        **kwargs,
+    ):
         result = output_dir / output_name
         result.write_bytes(b"fake mp4 content")
         return str(result)
+
 
     monkeypatch.setattr(
         web, "analyze_video", fake_analyze_video

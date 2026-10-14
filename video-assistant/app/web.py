@@ -108,10 +108,68 @@ def generate_best_of():
         artifacts_dir = OUTPUT_DIR / job_id
         artifacts_dir.mkdir(parents=True, exist_ok=True)
 
+                # Lire les réglages envoyés par l'interface
+        try:
+            k_audio = float(request.form.get("k_audio", 0.7))
+            k_video_cut = float(request.form.get("k_video_cut", 2.0))
+            k_video_highlight = float(
+                request.form.get("k_video_highlight", 0.7)
+            )
+            audio_weight = float(request.form.get("audio_weight", 0.3))
+            video_weight = float(request.form.get("video_weight", 0.7))
+            max_scene_duration = float(
+                request.form.get("max_scene_duration", 3.0)
+            )
+        except ValueError:
+            return jsonify({
+                "error": "Un ou plusieurs réglages sont invalides."
+            }), 400
+
+        # Vérifier les valeurs autorisées
+        if not 0 <= k_audio <= 2:
+            return jsonify({"error": "Le seuil audio doit être entre 0 et 2."}), 400
+
+        if not 0.5 <= k_video_cut <= 4:
+            return jsonify({"error": "Le seuil de coupure doit être entre 0,5 et 4."}), 400
+
+        if not 0 <= k_video_highlight <= 2:
+            return jsonify({"error": "Le seuil des moments forts doit être entre 0 et 2."}), 400
+
+        if not 0 <= audio_weight <= 1 or not 0 <= video_weight <= 1:
+            return jsonify({"error": "Les poids audio et vidéo doivent être entre 0 et 1."}), 400
+
+        if audio_weight + video_weight <= 0:
+            return jsonify({"error": "Au moins un des deux poids doit être positif."}), 400
+
+        if not 1 <= max_scene_duration <= 10:
+            return jsonify({"error": "La durée maximale doit être entre 1 et 10 secondes."}), 400
+        min_bestof_duration = float(
+            request.form.get("min_bestof_duration", 30)
+        )
+        max_bestof_duration = float(
+            request.form.get("max_bestof_duration", 60)
+        )
+
+        if min_bestof_duration <= 0:
+            return jsonify({"error": "La durée minimale doit être positive."}), 400
+
+        if max_bestof_duration < min_bestof_duration:
+            return jsonify({
+                "error": "La durée maximale doit être supérieure ou égale à la durée minimale."
+        }), 400
+        # Lancer l'analyse avec les réglages choisis
         result = analyze_video(
             str(input_path),
+            k_audio=k_audio,
+            k_video_cut=k_video_cut,
+            k_video_highlight=k_video_highlight,
+            audio_weight=audio_weight,
+            video_weight=video_weight,
+            max_scene_duration=max_scene_duration,
             output_name=f"{job_id}.mp4",
             artifacts_dir=artifacts_dir,
+            min_bestof_duration=min_bestof_duration,
+            max_bestof_duration=max_bestof_duration,
         )
 
         # Récupérer le chemin retourné par l'algorithme

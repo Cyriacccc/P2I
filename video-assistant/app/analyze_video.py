@@ -93,6 +93,11 @@ def analyze_video(
     k_video_highlight=0.7,
     output_name="best_of.mp4",
     artifacts_dir=None,
+    audio_weight=AUDIO_WEIGHT,
+    video_weight=VIDEO_WEIGHT,
+    max_scene_duration=MAX_SCENE_DURATION_SECONDS,
+    min_bestof_duration=30.0,
+    max_bestof_duration=60.0,
 ):
     # 1. Analyse vidéo
     motion_array, fps, frame_count = compute_motion_scores(video_path)
@@ -115,27 +120,57 @@ def analyze_video(
         motion_norm = normalize_signal(motion_array)
         audio_norm = normalize_signal(audio_array)
 
-        combined_array = (
-            VIDEO_WEIGHT * motion_norm
-            + AUDIO_WEIGHT * audio_norm
+        # 4. Calcul du seuil audio
+        audio_threshold = (
+            np.mean(audio_norm)
+            + k_audio * np.std(audio_norm)
         )
-    else:
-        motion_norm = normalize_signal(motion_array)
-        audio_norm = np.array([])
-        combined_array = motion_norm
-
-    # 4. Statistiques audio
-    if len(audio_array) > 0:
-        audio_threshold = np.mean(audio_norm) + k_audio * np.std(audio_norm)
         audio_peaks = np.where(audio_norm > audio_threshold)[0]
+
         mean_audio = np.mean(audio_norm)
         std_audio = np.std(audio_norm)
+
+        # Ne conserver que les périodes dépassant le seuil audio
+        audio_for_fusion = np.where(
+            audio_norm > audio_threshold,
+            audio_norm,
+            0.0,
+        )
+
+        # Normaliser les poids pour que leur somme fasse 1
+        total_weight = audio_weight + video_weight
+
+        if (
+            audio_weight < 0
+            or video_weight < 0
+            or total_weight <= 0
+        ):
+            raise ValueError(
+                "Les poids audio et vidéo doivent être positifs "
+                "ou nuls, avec au moins un poids positif."
+            )
+
+        normalized_audio_weight = audio_weight / total_weight
+        normalized_video_weight = video_weight / total_weight
+
+        combined_array = (
+            normalized_video_weight * motion_norm
+            + normalized_audio_weight * audio_for_fusion
+        )
+
     else:
+        # Si la vidéo n'a pas de piste audio exploitable,
+        # l'analyse repose uniquement sur le signal visuel.
+        motion_norm = normalize_signal(motion_array)
+        audio_norm = np.array([])
+        audio_for_fusion = np.array([])
+
         audio_threshold = 0
         audio_peaks = []
         mean_audio = 0
         std_audio = 0
 
+        combined_array = motion_norm
     # 5. Détection des coupures
     mean_motion, std_motion, threshold, scene_cuts = detect_scene_cuts(
         motion_array,
@@ -144,9 +179,9 @@ def analyze_video(
     )
 
     scene_segments = build_scene_segments(
-        scene_cuts,
-        fps,
-        max_scene_duration=MAX_SCENE_DURATION_SECONDS,
+    scene_cuts,
+    fps,
+    max_scene_duration=max_scene_duration,
     )
 
     print("✅ Analyse terminée")
@@ -210,9 +245,10 @@ def analyze_video(
         scene_segments,
         fps,
         frame_count,
-        min_bestof_ratio=MIN_BESTOF_RATIO,
         min_moments=MIN_BESTOF_MOMENTS,
         merge_gap_seconds=MERGE_GAP_SECONDS,
+        min_bestof_duration=min_bestof_duration,
+        max_bestof_duration=max_bestof_duration,
     )
 
     print_bestof_stats(

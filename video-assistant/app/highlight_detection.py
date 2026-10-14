@@ -39,6 +39,7 @@ def detect_highlights(combined_array, fps, k_video_highlight=0.7, min_duration_s
     return moments, smoothed_motion, dynamic_threshold
 
 # Sélection des meilleurs moments pour le best-of
+
 def select_bestof_segments(
     moments,
     scene_segments,
@@ -46,52 +47,121 @@ def select_bestof_segments(
     frame_count,
     min_bestof_ratio=0.2,
     min_moments=5,
-    merge_gap_seconds=1.0
+    merge_gap_seconds=1.0,
+    min_bestof_duration=30.0,
+    max_bestof_duration=60.0,
 ):
     video_duration = frame_count / fps
-    min_bestof_duration = video_duration * min_bestof_ratio # durée minimale souhaitée pour le best-of
+
+    # Adapter les durées demandées à la durée réelle de la vidéo
+    min_duration = min(min_bestof_duration, video_duration)
+    max_duration = min(max_bestof_duration, video_duration)
+
+    if min_duration <= 0 or max_duration <= 0:
+        raise ValueError("Les durées du Best Of doivent être positives.")
+
+    if min_duration > max_duration:
+        raise ValueError(
+            "La durée minimale doit être inférieure ou égale "
+            "à la durée maximale."
+        )
+
+    min_frames = int(min_duration * fps)
+    max_frames = int(max_duration * fps)
 
     selected_moments = []
-    current_duration = 0
+    current_frames = 0
 
-    # 1. Sélection prioritaire des moments forts détectés
+    # Ajoute un segment sans dépasser la durée maximale
+    def add_segment(start, end):
+        nonlocal current_frames
+
+        start = max(0, int(start))
+        end = min(frame_count, int(end))
+
+        if end <= start:
+            return
+
+        remaining_frames = max_frames - current_frames
+
+        if remaining_frames <= 0:
+            return
+
+        # Évite de sélectionner plusieurs fois les mêmes images
+        for old_start, old_end in selected_moments:
+            if not (end <= old_start or start >= old_end):
+                return
+
+        segment_length = min(end - start, remaining_frames)
+
+        if segment_length > 0:
+            selected_moments.append((start, start + segment_length))
+            current_frames += segment_length
+
+    # 1. Sélectionner les moments forts, du meilleur score au moins bon
     for start, end, score in moments:
-        segment_duration = (end - start) / fps
-
-        selected_moments.append((start, end))
-        current_duration += segment_duration
-        # Arrêt dès que les critères minimums sont atteints
-        if len(selected_moments) >= min_moments and current_duration >= min_bestof_duration:
+        if current_frames >= max_frames:
             break
 
-    # 2. Complément avec les segments de scènes si la durée reste insuffisante
-    if current_duration < min_bestof_duration:
+        if (
+            len(selected_moments) >= min_moments
+            and current_frames >= min_frames
+        ):
+            break
+
+        add_segment(start, end)
+
+    # 2. Si nécessaire, compléter avec des segments de scènes
+    if current_frames < min_frames:
         for start, end in scene_segments:
-            overlap = False
-
-            # Vérifie qu'un segment de scène ne recouvre pas un segment déjà sélectionné
-            for sel_start, sel_end in selected_moments:
-                if not (end < sel_start or start > sel_end):
-                    overlap = True
-                    break
-
-            if not overlap:
-                selected_moments.append((start, end))
-                current_duration += (end - start) / fps
-
-            if current_duration >= min_bestof_duration:
+            if current_frames >= min_frames or current_frames >= max_frames:
                 break
 
-    # 3. Trie les segments dans l'ordre chronologique
-    selected_moments = sorted(selected_moments, key=lambda x: x[0])
+            add_segment(start, end)
 
-    # 4. Fusionne les segments très proches pour améliorer la fluidité du montage
+    # 3. Fusionner les segments proches, sans dépasser le maximum
+    selected_moments.sort(key=lambda segment: segment[0])
+
     merge_gap_frames = int(merge_gap_seconds * fps)
-    selected_moments = merge_close_segments(selected_moments, merge_gap_frames)
+    merged_segments = merge_close_segments(
+        selected_moments,
+        merge_gap_frames,
+    )
 
-    # 5. Recalcul de la durée après fusion
-    current_duration = 0
-    for start, end in selected_moments:
-        current_duration += (end - start) / fps
+    # 4. Contrôler à nouveau la durée après la fusion
+    final_segments = []
+    remaining_frames = max_frames
 
-    return selected_moments, video_duration, min_bestof_duration, current_duration
+    for start, end in merged_segments:
+        if remaining_frames <= 0:
+            break
+
+        length = min(end - start, remaining_frames)
+
+        if length > 0:
+            final_segments.append((start, start + length))
+            remaining_frames -= length
+
+    selected_moments = final_segments
+
+    current_duration = sum(
+        end - start for start, end in selected_moments
+    ) / fps
+
+    print(
+        f"Durée demandée : {min_duration:.1f} à "
+        f"{max_duration:.1f} secondes"
+    )
+
+    if current_duration < min_duration:
+        print(
+            "⚠️ Impossible d'atteindre la durée minimale avec "
+            "les segments disponibles."
+        )
+
+    return (
+        selected_moments,
+        video_duration,
+        min_duration,
+        current_duration,
+    )

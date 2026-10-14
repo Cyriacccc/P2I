@@ -219,3 +219,59 @@ footer {
   .section-heading { font-size: 9px; }
   footer { flex-direction: column; text-align: center; }
 }
+
+/* Réglages de l'analyse vidéo */
+.settings {
+  margin: 32px 0;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+}
+
+.settings .section-heading {
+  margin-bottom: 28px;
+}
+
+.setting {
+  margin-bottom: 24px;
+}
+
+.setting label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+
+.setting output {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.setting input[type="range"] {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  accent-color: #c7ff4a;
+}
+
+.setting p {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  opacity: 0.65;
+}
+
+.reset-button {
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.reset-button:hover {
+  opacity: 0.75;
+}

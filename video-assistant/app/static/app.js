@@ -11,6 +11,54 @@ const result = document.getElementById("result");
 const resultVideo = document.getElementById("result-video");
 const downloadLink = document.getElementById("download-link");
 
+// Afficher la valeur actuelle de chaque réglage
+const settingInputs = document.querySelectorAll(
+  ".settings input[type='range']"
+);
+
+function updateSettingValue(control) {
+  const output = document.getElementById(`${control.id}-value`);
+
+  if (!output) return;
+
+  const value = Number(control.value);
+
+  if (control.id.includes("weight")) {
+    output.textContent = value.toFixed(2);
+  } else if (control.id === "max-scene-duration") {
+    output.textContent = `${value.toFixed(1)} s`;
+  } else {
+    output.textContent = value.toFixed(1);
+  }
+}
+
+settingInputs.forEach((control) => {
+  control.addEventListener("input", () => {
+    updateSettingValue(control);
+  });
+
+  updateSettingValue(control);
+});
+
+// Réinitialiser tous les réglages
+const resetSettingsButton = document.getElementById("reset-settings");
+
+const defaultSettings = {
+  "k-audio": "0.7",
+  "k-video-cut": "2",
+  "k-video-highlight": "0.7",
+  "audio-weight": "0.3",
+  "video-weight": "0.7",
+  "max-scene-duration": "3",
+};
+
+resetSettingsButton.addEventListener("click", () => {
+  settingInputs.forEach((control) => {
+    control.value = defaultSettings[control.id];
+    updateSettingValue(control);
+  });
+});
+
 const allowedExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm"];
 let selectedFile = null;
 let isProcessing = false;
@@ -82,8 +130,12 @@ generateButton.addEventListener("click", async () => {
   notice.textContent = "Analyse du mouvement et du son, puis montage automatique. Cela peut prendre plusieurs minutes.";
   result.hidden = true;
 
-  const formData = new FormData();
-  formData.append("video", selectedFile);
+ const formData = new FormData();
+formData.append("video", selectedFile);
+
+document.querySelectorAll(".settings input").forEach((input) => {
+  formData.append(input.name, input.value);
+});
 
   try {
     const response = await fetch("/api/generate", {
