@@ -189,3 +189,6 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+
+# Rapport P2I à conserver en local
+/Rapport P2I_Cyriac_Dupouey finale.pdf

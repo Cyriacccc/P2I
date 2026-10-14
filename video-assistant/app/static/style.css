@@ -1,0 +1,221 @@
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #090909;
+  --panel: #111111;
+  --line: #292929;
+  --text: #f5f3ef;
+  --muted: #888780;
+  --orange: #ff6b2c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse at 50% 12%, #29160f 0%, transparent 38%),
+    var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+}
+
+.topbar, footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 25px 7%;
+  border-bottom: 1px solid #ffffff12;
+}
+
+.brand {
+  color: var(--text);
+  font: 700 24px 'Space Grotesk', sans-serif;
+  text-decoration: none;
+  letter-spacing: -1px;
+}
+
+.brand span, .hero h1 span { color: var(--orange); }
+
+.status, .eyebrow, .section-heading, .file-note, footer {
+  font-size: 10px;
+  letter-spacing: 1.8px;
+  font-weight: 700;
+}
+
+.status { color: #c5c1bb; }
+
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--orange);
+  box-shadow: 0 0 12px #ff6b2c88;
+}
+
+main {
+  width: min(760px, 88%);
+  margin: 0 auto;
+}
+
+.hero {
+  text-align: center;
+  padding: 85px 0 55px;
+}
+
+.eyebrow { color: var(--orange); }
+
+.hero h1 {
+  font: 600 clamp(44px, 8vw, 76px)/1.03 'Space Grotesk', sans-serif;
+  letter-spacing: -4px;
+  margin: 22px 0;
+}
+
+.subtitle {
+  color: #a6a29c;
+  max-width: 500px;
+  margin: 0 auto;
+  line-height: 1.8;
+  font-size: 14px;
+}
+
+.workspace {
+  padding: 25px;
+  background: #101010e8;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 25px 90px #0008;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.muted, .notice { color: var(--muted); }
+
+.upload-zone {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 42px 16px;
+  background: #151515;
+  border: 1px dashed #414141;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+
+.upload-zone:hover, .upload-zone.dragging {
+  border-color: var(--orange);
+  background: #20150f;
+}
+
+.upload-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #ff6b2c17;
+  color: var(--orange);
+  font-size: 25px;
+}
+
+.upload-zone h2 {
+  font: 500 19px 'Space Grotesk', sans-serif;
+  margin: 18px 0 7px;
+}
+
+.upload-zone p { color: var(--muted); font-size: 13px; }
+
+.file-note {
+  color: #686868;
+  margin-top: 14px;
+  font-size: 9px;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.file-symbol { color: var(--orange); }
+#file-name { flex: 1; font-size: 13px; }
+#remove-file {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 23px;
+  cursor: pointer;
+}
+
+.generate-button, .download-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--orange);
+  color: #100a07;
+  font: 700 11px 'DM Sans', sans-serif;
+  letter-spacing: 1.1px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity .2s, transform .2s;
+}
+
+.generate-button:hover:not(:disabled), .download-button:hover {
+  transform: translateY(-1px);
+}
+
+.generate-button:disabled {
+  opacity: .38;
+  cursor: not-allowed;
+}
+
+.notice {
+  min-height: 18px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.result { margin-top: 40px; }
+.result video { width: 100%; background: #000; border-radius: 8px; }
+.result .download-button { justify-content: center; }
+
+footer {
+  margin-top: 75px;
+  border-top: 1px solid #ffffff12;
+  border-bottom: 0;
+  color: #686868;
+  font-size: 9px;
+  gap: 15px;
+}
+
+@media (max-width: 600px) {
+  .topbar, footer { padding: 20px 6%; }
+  .status { font-size: 8px; }
+  .hero { padding: 65px 0 40px; }
+  .hero h1 { letter-spacing: -2px; }
+  .workspace { padding: 16px; }
+  .section-heading { font-size: 9px; }
+  footer { flex-direction: column; text-align: center; }
+}

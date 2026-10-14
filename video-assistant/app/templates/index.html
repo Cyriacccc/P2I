@@ -1,0 +1,75 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FRAME — AI Video Editor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">FRAME<span>.</span></a>
+    <div class="status"><span class="dot"></span> AI VIDEO STUDIO</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">YOUR STORY. REIMAGINED.</p>
+      <h1>Every moment<br>has a <span>highlight.</span></h1>
+      <p class="subtitle">
+        Ton algorithme analyse le mouvement et le son pour créer
+        automatiquement un Best Of de ta vidéo.
+      </p>
+    </section>
+
+    <section class="workspace">
+      <div class="section-heading">
+        <span>01 / SOURCE</span>
+        <span class="muted">IMPORT YOUR FOOTAGE</span>
+      </div>
+
+      <label class="upload-zone" id="drop-zone" for="video-input">
+        <input id="video-input" type="file" accept="video/*" hidden>
+        <div class="upload-icon">↥</div>
+        <h2 id="upload-title">Drop your footage here</h2>
+        <p id="upload-description">ou clique pour parcourir tes fichiers</p>
+        <span class="file-note">MP4 · MOV · AVI · MKV · WEBM</span>
+      </label>
+
+      <div class="file-info" id="file-info" hidden>
+        <span class="file-symbol">▶</span>
+        <span id="file-name"></span>
+        <button id="remove-file" type="button" aria-label="Retirer la vidéo">×</button>
+      </div>
+
+      <button class="generate-button" id="generate-button" disabled>
+        <span id="button-label">GÉNÉRER MON BEST OF</span>
+        <span aria-hidden="true">↗</span>
+      </button>
+
+      <p class="notice" id="notice" role="status">
+        Sélectionne une vidéo pour commencer.
+      </p>
+
+      <section class="result" id="result" hidden>
+        <div class="section-heading">
+          <span>02 / YOUR CUT</span>
+          <span class="muted">READY TO PLAY</span>
+        </div>
+        <video id="result-video" controls playsinline></video>
+        <a class="download-button" id="download-link" href="#">
+          Télécharger mon Best Of ↓
+        </a>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    <span>FRAME. / AUTOMATED VIDEO EDITING</span>
+    <span>BUILT TO FIND THE MOMENT.</span>
+  </footer>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 # Génère une miniature (thumbnail) représentative d'un moment fort de la vidéo
-def generate_thumbnail(video_path, moment, motion_array):
+def generate_thumbnail(video_path, moment, motion_array, output_dir=None):
     start, end, score = moment
 
     # Sélection de la frame la plus "intense" (score maximal) dans le segment
@@ -17,8 +17,14 @@ def generate_thumbnail(video_path, moment, motion_array):
 
     if ret:
         # Construction du chemin de sortie (dossier outputs à la racine du projet)
-        base_path = Path(__file__).resolve().parent.parent
-        output_path = base_path / "outputs" / "thumbnail.png"
+        if output_dir is None:
+           base_path = Path(__file__).resolve().parent.parent
+           output_dir = base_path / "outputs"
+        else:
+           output_dir = Path(output_dir)
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / "thumbnail.png"
         # Sauvegarde de l'image extraite
         cv2.imwrite(str(output_path), frame)
         print("🖼️ Miniature générée :", output_path)
