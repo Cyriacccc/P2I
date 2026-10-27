@@ -71,6 +71,7 @@ def index():
 
 @app.route("/api/generate", methods=["POST"])
 def generate_best_of():
+    print("🚀 Requête de génération reçue", flush=True)
 
     if "video" not in request.files:
         return jsonify({
@@ -157,6 +158,7 @@ def generate_best_of():
             return jsonify({
                 "error": "La durée maximale doit être supérieure ou égale à la durée minimale."
         }), 400
+        print("🎬 Début de l'analyse vidéo", flush=True)
         # Lancer l'analyse avec les réglages choisis
         result = analyze_video(
             str(input_path),
@@ -171,6 +173,7 @@ def generate_best_of():
             min_bestof_duration=min_bestof_duration,
             max_bestof_duration=max_bestof_duration,
         )
+        print("✅ Analyse vidéo terminée", flush=True)
 
         # Récupérer le chemin retourné par l'algorithme
         if result:
