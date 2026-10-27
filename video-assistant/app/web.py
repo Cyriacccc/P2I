@@ -173,6 +173,7 @@ def index():
 
 @app.route("/api/generate", methods=["POST"])
 def generate_best_of():
+    print("========== REQUÊTE /api/generate REÇUE ==========", flush=True)
 
     print(
         "🚀 Requête de génération reçue",
@@ -322,6 +323,7 @@ def generate_best_of():
             input_path,
             settings,
         )
+        print("========== DÉBUT DU TRAITEMENT VIDÉO ==========", flush=True)
 
         print(
             f"⏳ [{job_id}] Tâche envoyée au traitement en arrière-plan",
@@ -340,6 +342,7 @@ def generate_best_of():
         }), 202
 
     except Exception:
+        print(f"========== ERREUR TRAITEMENT : {e!r} ==========", flush=True)
         app.logger.exception(
             "Impossible de démarrer la génération"
         )
